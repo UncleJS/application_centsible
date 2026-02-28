@@ -1,0 +1,13 @@
+{
+  "version": "7",
+  "dialect": "mysql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1772310265154,
+      "tag": "0000_amusing_quentin_quire",
+      "breakpoints": true
+    }
+  ]
+}

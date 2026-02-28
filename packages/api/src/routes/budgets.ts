@@ -1,0 +1,200 @@
+import { Elysia, t } from "elysia";
+import { authMiddleware } from "../middleware/auth";
+import { db, schema } from "../db";
+import { eq, and, isNull, sql } from "drizzle-orm";
+
+const amountPattern = "^\\d+(\\.\\d{1,2})?$";
+
+function validateYearMonth(
+  yearRaw: string | undefined,
+  monthRaw: string | undefined
+): { year: number; month: number } | { error: string } {
+  const now = new Date();
+  const year = yearRaw ? parseInt(yearRaw, 10) : now.getFullYear();
+  const month = monthRaw ? parseInt(monthRaw, 10) : now.getMonth() + 1;
+
+  if (isNaN(year) || year < 2020 || year > 2100) {
+    return { error: "Year must be between 2020 and 2100" };
+  }
+  if (isNaN(month) || month < 1 || month > 12) {
+    return { error: "Month must be between 1 and 12" };
+  }
+  return { year, month };
+}
+
+export const budgetRoutes = new Elysia({
+  prefix: "/budgets",
+  detail: { tags: ["Budgets"] },
+})
+  .use(authMiddleware)
+  // ── List budgets for a given month ──
+  .get(
+    "/",
+    async ({ user, query, set }) => {
+      const result = validateYearMonth(query.year, query.month);
+      if ("error" in result) {
+        set.status = 400;
+        return { error: result.error };
+      }
+      const { year, month } = result;
+
+      const rows = await db
+        .select({
+          id: schema.budgets.id,
+          userId: schema.budgets.userId,
+          categoryId: schema.budgets.categoryId,
+          categoryName: schema.categories.name,
+          categoryIcon: schema.categories.icon,
+          categoryColor: schema.categories.color,
+          year: schema.budgets.year,
+          month: schema.budgets.month,
+          amount: schema.budgets.amount,
+          currency: schema.budgets.currency,
+          createdAt: schema.budgets.createdAt,
+          updatedAt: schema.budgets.updatedAt,
+        })
+        .from(schema.budgets)
+        .leftJoin(
+          schema.categories,
+          eq(schema.budgets.categoryId, schema.categories.id)
+        )
+        .where(
+          and(
+            eq(schema.budgets.userId, user.id),
+            eq(schema.budgets.year, year),
+            eq(schema.budgets.month, month),
+            isNull(schema.budgets.archivedAt)
+          )
+        );
+
+      return { data: rows };
+    }
+  )
+  // ── Create or update budget (atomic upsert) ──
+  .post(
+    "/",
+    async ({ body, user, set }) => {
+      const { categoryId, year, month, amount, currency } = body;
+
+      // Verify category belongs to user
+      const [category] = await db
+        .select({ id: schema.categories.id })
+        .from(schema.categories)
+        .where(
+          and(
+            eq(schema.categories.id, categoryId),
+            eq(schema.categories.userId, user.id),
+            isNull(schema.categories.archivedAt)
+          )
+        );
+
+      if (!category) {
+        set.status = 400;
+        return { error: "Invalid category" };
+      }
+
+      // Atomic upsert using ON DUPLICATE KEY UPDATE
+      // Uses the unique index: budgets_user_cat_period_unique(userId, categoryId, year, month)
+      await db
+        .insert(schema.budgets)
+        .values({ categoryId, year, month, amount, currency, userId: user.id })
+        .onDuplicateKeyUpdate({
+          set: { amount, currency },
+        });
+
+      // Fetch the upserted row
+      const [result] = await db
+        .select()
+        .from(schema.budgets)
+        .where(
+          and(
+            eq(schema.budgets.userId, user.id),
+            eq(schema.budgets.categoryId, categoryId),
+            eq(schema.budgets.year, year),
+            eq(schema.budgets.month, month),
+            isNull(schema.budgets.archivedAt)
+          )
+        );
+
+      return { data: result };
+    },
+    {
+      body: t.Object({
+        categoryId: t.Integer({ minimum: 1 }),
+        year: t.Integer({ minimum: 2020, maximum: 2100 }),
+        month: t.Integer({ minimum: 1, maximum: 12 }),
+        amount: t.String({ pattern: amountPattern, error: "Amount must be a valid decimal" }),
+        currency: t.String({ minLength: 3, maxLength: 3 }),
+      }),
+    }
+  )
+  // ── Update budget amount ──
+  .patch(
+    "/:id",
+    async ({ params, body, user, set }) => {
+      const id = Number(params.id);
+
+      const [existing] = await db
+        .select()
+        .from(schema.budgets)
+        .where(
+          and(
+            eq(schema.budgets.id, id),
+            eq(schema.budgets.userId, user.id),
+            isNull(schema.budgets.archivedAt)
+          )
+        );
+
+      if (!existing) {
+        set.status = 404;
+        return { error: "Budget not found" };
+      }
+
+      await db
+        .update(schema.budgets)
+        .set({ amount: body.amount })
+        .where(and(eq(schema.budgets.id, id), eq(schema.budgets.userId, user.id)));
+
+      const [updated] = await db
+        .select()
+        .from(schema.budgets)
+        .where(eq(schema.budgets.id, id));
+
+      return { data: updated };
+    },
+    {
+      params: t.Object({ id: t.String() }),
+      body: t.Object({
+        amount: t.String({ pattern: amountPattern, error: "Amount must be a valid decimal" }),
+      }),
+    }
+  )
+  // ── Archive budget ──
+  .delete("/:id", async ({ params, user, set }) => {
+    const id = Number(params.id);
+
+    const [existing] = await db
+      .select()
+      .from(schema.budgets)
+      .where(
+        and(
+          eq(schema.budgets.id, id),
+          eq(schema.budgets.userId, user.id),
+          isNull(schema.budgets.archivedAt)
+        )
+      );
+
+    if (!existing) {
+      set.status = 404;
+      return { error: "Budget not found" };
+    }
+
+    await db
+      .update(schema.budgets)
+      .set({ archivedAt: new Date() })
+      .where(and(eq(schema.budgets.id, id), eq(schema.budgets.userId, user.id)));
+
+    return { data: { message: "Budget archived" } };
+  }, {
+    params: t.Object({ id: t.String() }),
+  });

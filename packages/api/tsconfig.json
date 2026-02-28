@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "declaration": false,
+    "declarationMap": false,
+    "types": ["@types/bun"],
+    "paths": {
+      "@centsible/shared/*": ["../shared/src/*"],
+      "@centsible/shared": ["../shared/src"]
+    },
+    "baseUrl": "."
+  },
+  "include": ["src", "../shared/src"]
+}

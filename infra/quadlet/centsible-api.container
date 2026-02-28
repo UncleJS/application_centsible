@@ -1,0 +1,34 @@
+# Centsible Backend API Container (runs in centsible pod)
+# Accessible at http://localhost:10301
+# Connects to MariaDB via pod localhost:3306
+
+[Unit]
+Description=Centsible Backend API (Pod)
+Documentation=https://bun.sh/docs
+After=network-online.target centsible-mariadb.service
+Requires=centsible-mariadb.service
+BindsTo=centsible-pod.service
+After=centsible-pod.service
+
+[Container]
+Image=localhost/centsible-api:latest
+ContainerName=centsible-api
+AutoUpdate=local
+
+# Run in the centsible pod
+Pod=centsible.pod
+
+# Environment variables
+EnvironmentFile=%h/.config/containers/systemd/.env.centsible
+Environment=NODE_ENV=production
+Environment=API_PORT=10301
+Environment=DB_HOST=localhost
+Environment=DB_PORT=3306
+Environment=WEB_URL=http://localhost:10300
+
+[Service]
+Restart=always
+TimeoutStartSec=120
+
+[Install]
+WantedBy=default.target

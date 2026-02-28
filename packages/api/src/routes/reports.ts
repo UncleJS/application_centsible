@@ -1,0 +1,474 @@
+import { Elysia, t } from "elysia";
+import { authMiddleware } from "../middleware/auth";
+import { db, schema } from "../db";
+import { eq, and, isNull, gte, lt, sql } from "drizzle-orm";
+import { BILLING_CYCLE_MONTHS } from "@centsible/shared";
+import type { ForecastMonth, ForecastItem } from "@centsible/shared";
+
+// ── Helpers ──
+
+/** Validate year/month query params, return defaults if missing, 400 if invalid */
+function parseYearMonth(query: { year?: string; month?: string }): {
+  year: number;
+  month: number;
+  error?: string;
+} {
+  const now = new Date();
+  let year = query.year ? Number(query.year) : now.getFullYear();
+  let month = query.month ? Number(query.month) : now.getMonth() + 1;
+
+  if (Number.isNaN(year) || year < 2000 || year > 2100) {
+    return { year: 0, month: 0, error: "Invalid year parameter" };
+  }
+  if (Number.isNaN(month) || month < 1 || month > 12) {
+    return { year: 0, month: 0, error: "Invalid month parameter" };
+  }
+  return { year, month };
+}
+
+/** Build start/end date strings for a given year/month period */
+function periodDates(year: number, month: number) {
+  const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
+  const endDate =
+    month === 12
+      ? `${year + 1}-01-01`
+      : `${year}-${String(month + 1).padStart(2, "0")}-01`;
+  return { startDate, endDate };
+}
+
+/** Sanitise a single CSV cell to prevent formula injection */
+function csvSafeCell(value: string): string {
+  // If the value starts with a formula trigger character, prefix with a single quote
+  if (/^[=+\-@\t\r]/.test(value)) {
+    return `'${value}`;
+  }
+  return value;
+}
+
+export const reportRoutes = new Elysia({
+  prefix: "/reports",
+  detail: { tags: ["Reports"] },
+})
+  .use(authMiddleware)
+  // ── Monthly summary ──
+  .get("/summary", async ({ user, query, set }) => {
+    const parsed = parseYearMonth(query);
+    if (parsed.error) {
+      set.status = 400;
+      return { error: parsed.error };
+    }
+    const { year, month } = parsed;
+    const { startDate, endDate } = periodDates(year, month);
+
+    // Get totals by type
+    const totals = await db
+      .select({
+        type: schema.transactions.type,
+        total: sql<string>`SUM(${schema.transactions.amount})`,
+      })
+      .from(schema.transactions)
+      .where(
+        and(
+          eq(schema.transactions.userId, user.id),
+          isNull(schema.transactions.archivedAt),
+          gte(schema.transactions.date, startDate),
+          lt(schema.transactions.date, endDate)
+        )
+      )
+      .groupBy(schema.transactions.type);
+
+    const totalIncome =
+      totals.find((t) => t.type === "income")?.total || "0.00";
+    const totalExpenses =
+      totals.find((t) => t.type === "expense")?.total || "0.00";
+    const netAmount = (
+      parseFloat(totalIncome) - parseFloat(totalExpenses)
+    ).toFixed(2);
+
+    // Get breakdown by category
+    const byCategory = await db
+      .select({
+        categoryId: schema.transactions.categoryId,
+        categoryName: schema.categories.name,
+        categoryIcon: schema.categories.icon,
+        categoryColor: schema.categories.color,
+        type: schema.transactions.type,
+        totalAmount: sql<string>`SUM(${schema.transactions.amount})`,
+        transactionCount: sql<number>`COUNT(*)`,
+      })
+      .from(schema.transactions)
+      .leftJoin(
+        schema.categories,
+        eq(schema.transactions.categoryId, schema.categories.id)
+      )
+      .where(
+        and(
+          eq(schema.transactions.userId, user.id),
+          isNull(schema.transactions.archivedAt),
+          gte(schema.transactions.date, startDate),
+          lt(schema.transactions.date, endDate)
+        )
+      )
+      .groupBy(
+        schema.transactions.categoryId,
+        schema.categories.name,
+        schema.categories.icon,
+        schema.categories.color,
+        schema.transactions.type
+      );
+
+    // Get budgets for the month to calculate percent used
+    const monthBudgets = await db
+      .select()
+      .from(schema.budgets)
+      .where(
+        and(
+          eq(schema.budgets.userId, user.id),
+          eq(schema.budgets.year, year),
+          eq(schema.budgets.month, month),
+          isNull(schema.budgets.archivedAt)
+        )
+      );
+
+    const budgetMap = new Map(
+      monthBudgets.map((b) => [b.categoryId, b.amount])
+    );
+
+    const categorySummary = byCategory.map((c) => {
+      const budgetAmount = budgetMap.get(c.categoryId) || null;
+      const percentUsed = budgetAmount
+        ? (parseFloat(c.totalAmount) / parseFloat(budgetAmount)) * 100
+        : null;
+
+      return {
+        categoryId: c.categoryId,
+        categoryName: c.categoryName,
+        categoryIcon: c.categoryIcon,
+        categoryColor: c.categoryColor,
+        type: c.type,
+        totalAmount: c.totalAmount,
+        budgetAmount,
+        percentUsed: percentUsed !== null ? Math.round(percentUsed) : null,
+        transactionCount: Number(c.transactionCount),
+      };
+    });
+
+    return {
+      data: {
+        year,
+        month,
+        totalIncome,
+        totalExpenses,
+        netAmount,
+        byCategory: categorySummary,
+      },
+    };
+  })
+  // ── Forward expense forecast (up to 12 months) ──
+  .get("/forecast", async ({ user, query }) => {
+    const months = Math.min(Math.max(Number(query.months) || 3, 1), 12);
+    const today = new Date();
+    const forecast: ForecastMonth[] = [];
+
+    // Get active subscriptions
+    const subs = await db
+      .select()
+      .from(schema.subscriptions)
+      .where(
+        and(
+          eq(schema.subscriptions.userId, user.id),
+          isNull(schema.subscriptions.archivedAt)
+        )
+      );
+
+    // Get active savings goals
+    const goals = await db
+      .select()
+      .from(schema.savingsGoals)
+      .where(
+        and(
+          eq(schema.savingsGoals.userId, user.id),
+          isNull(schema.savingsGoals.archivedAt)
+        )
+      );
+
+    // Get latest month's budgets as baseline
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth() + 1;
+    const latestBudgets = await db
+      .select({
+        categoryId: schema.budgets.categoryId,
+        categoryName: schema.categories.name,
+        amount: schema.budgets.amount,
+        currency: schema.budgets.currency,
+      })
+      .from(schema.budgets)
+      .leftJoin(
+        schema.categories,
+        eq(schema.budgets.categoryId, schema.categories.id)
+      )
+      .where(
+        and(
+          eq(schema.budgets.userId, user.id),
+          eq(schema.budgets.year, currentYear),
+          eq(schema.budgets.month, currentMonth),
+          isNull(schema.budgets.archivedAt)
+        )
+      );
+
+    for (let i = 0; i < months; i++) {
+      const forecastDate = new Date(
+        today.getFullYear(),
+        today.getMonth() + i + 1,
+        1
+      );
+      const fYear = forecastDate.getFullYear();
+      const fMonth = forecastDate.getMonth() + 1;
+      const items: ForecastItem[] = [];
+
+      // Calculate subscription costs for this month
+      let subscriptionTotal = 0;
+      for (const sub of subs) {
+        const renewals = getSubscriptionRenewalsInMonth(
+          sub,
+          fYear,
+          fMonth
+        );
+        for (const renewal of renewals) {
+          const amount = parseFloat(sub.amount);
+          subscriptionTotal += amount;
+          items.push({
+            name: sub.name,
+            amount: sub.amount,
+            currency: sub.currency,
+            date: renewal,
+            type: "subscription",
+            sourceId: sub.id,
+          });
+        }
+      }
+
+      // Estimate savings goal contributions for this month
+      let savingsTotal = 0;
+      for (const goal of goals) {
+        const remaining =
+          parseFloat(goal.targetAmount) - parseFloat(goal.currentAmount || "0");
+        if (remaining <= 0) continue;
+
+        const targetDate = new Date(goal.targetDate);
+        // Calculate months remaining relative to the forecast month, not today
+        const monthsRemaining = Math.max(
+          1,
+          (targetDate.getFullYear() - fYear) * 12 +
+            (targetDate.getMonth() + 1 - fMonth)
+        );
+
+        if (forecastDate <= targetDate) {
+          const monthlyContribution = remaining / monthsRemaining;
+          savingsTotal += monthlyContribution;
+          items.push({
+            name: `Savings: ${goal.name}`,
+            amount: monthlyContribution.toFixed(2),
+            currency: goal.currency,
+            date: `${fYear}-${String(fMonth).padStart(2, "0")}-01`,
+            type: "savings",
+            sourceId: goal.id,
+          });
+        }
+      }
+
+      // Add budget amounts as projected expenses
+      let budgetTotal = 0;
+      for (const budget of latestBudgets) {
+        budgetTotal += parseFloat(budget.amount);
+        items.push({
+          name: `Budget: ${budget.categoryName}`,
+          amount: budget.amount,
+          currency: budget.currency,
+          date: `${fYear}-${String(fMonth).padStart(2, "0")}-01`,
+          type: "budget",
+          sourceId: budget.categoryId,
+        });
+      }
+
+      const totalProjected = subscriptionTotal + savingsTotal + budgetTotal;
+
+      forecast.push({
+        year: fYear,
+        month: fMonth,
+        projectedExpenses: budgetTotal.toFixed(2),
+        subscriptionCosts: subscriptionTotal.toFixed(2),
+        savingsContributions: savingsTotal.toFixed(2),
+        totalProjected: totalProjected.toFixed(2),
+        items: items.sort(
+          (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+        ),
+      });
+    }
+
+    return { data: forecast };
+  })
+  // ── Monthly trend (last N months) ──
+  .get("/trend", async ({ user, query }) => {
+    const months = Math.min(Math.max(Number(query.months) || 6, 1), 24);
+    const today = new Date();
+
+    // Calculate overall date range for single query
+    const startD = new Date(today.getFullYear(), today.getMonth() - (months - 1), 1);
+    const endD = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+    const rangeStart = `${startD.getFullYear()}-${String(startD.getMonth() + 1).padStart(2, "0")}-01`;
+    const rangeEnd = `${endD.getFullYear()}-${String(endD.getMonth() + 1).padStart(2, "0")}-01`;
+
+    // Single query with GROUP BY year/month instead of N+1 loop
+    const totals = await db
+      .select({
+        year: sql<number>`YEAR(${schema.transactions.date})`,
+        month: sql<number>`MONTH(${schema.transactions.date})`,
+        type: schema.transactions.type,
+        total: sql<string>`COALESCE(SUM(${schema.transactions.amount}), 0)`,
+      })
+      .from(schema.transactions)
+      .where(
+        and(
+          eq(schema.transactions.userId, user.id),
+          isNull(schema.transactions.archivedAt),
+          gte(schema.transactions.date, rangeStart),
+          lt(schema.transactions.date, rangeEnd)
+        )
+      )
+      .groupBy(
+        sql`YEAR(${schema.transactions.date})`,
+        sql`MONTH(${schema.transactions.date})`,
+        schema.transactions.type
+      );
+
+    // Build a lookup map: "YYYY-MM" → { income, expenses }
+    const lookup = new Map<string, { income: string; expenses: string }>();
+    for (const row of totals) {
+      const key = `${row.year}-${row.month}`;
+      if (!lookup.has(key)) {
+        lookup.set(key, { income: "0.00", expenses: "0.00" });
+      }
+      const entry = lookup.get(key)!;
+      if (row.type === "income") entry.income = row.total;
+      else if (row.type === "expense") entry.expenses = row.total;
+    }
+
+    // Build results array in chronological order
+    const results = [];
+    for (let i = months - 1; i >= 0; i--) {
+      const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+      const year = d.getFullYear();
+      const month = d.getMonth() + 1;
+      const key = `${year}-${month}`;
+      const entry = lookup.get(key) || { income: "0.00", expenses: "0.00" };
+
+      results.push({
+        year,
+        month,
+        income: entry.income,
+        expenses: entry.expenses,
+        net: (parseFloat(entry.income) - parseFloat(entry.expenses)).toFixed(2),
+      });
+    }
+
+    return { data: results };
+  })
+  // ── Export transactions as CSV ──
+  .get("/export", async ({ user, query, set }) => {
+    const parsed = parseYearMonth(query);
+    if (parsed.error) {
+      set.status = 400;
+      return { error: parsed.error };
+    }
+    const { year, month } = parsed;
+    const { startDate, endDate } = periodDates(year, month);
+
+    const rows = await db
+      .select({
+        date: schema.transactions.date,
+        type: schema.transactions.type,
+        category: schema.categories.name,
+        description: schema.transactions.description,
+        amount: schema.transactions.amount,
+        currency: schema.transactions.currency,
+      })
+      .from(schema.transactions)
+      .leftJoin(
+        schema.categories,
+        eq(schema.transactions.categoryId, schema.categories.id)
+      )
+      .where(
+        and(
+          eq(schema.transactions.userId, user.id),
+          isNull(schema.transactions.archivedAt),
+          gte(schema.transactions.date, startDate),
+          lt(schema.transactions.date, endDate)
+        )
+      )
+      .orderBy(schema.transactions.date);
+
+    const csv = [
+      "Date,Type,Category,Description,Amount,Currency",
+      ...rows.map(
+        (r) =>
+          `${r.date},${r.type},"${csvSafeCell(r.category || "")}","${csvSafeCell((r.description || "").replace(/"/g, '""'))}",${r.amount},${r.currency}`
+      ),
+    ].join("\n");
+
+    set.headers["content-type"] = "text/csv";
+    set.headers["content-disposition"] =
+      `attachment; filename="centsible-${year}-${String(month).padStart(2, "0")}.csv"`;
+
+    return csv;
+  });
+
+// ── Helper: Calculate subscription renewal dates within a given month ──
+
+function getSubscriptionRenewalsInMonth(
+  sub: {
+    nextRenewalDate: string;
+    billingCycle: string;
+    autoRenew: boolean;
+  },
+  year: number,
+  month: number
+): string[] {
+  if (!sub.autoRenew) return [];
+
+  const renewals: string[] = [];
+  const cycleMonths = BILLING_CYCLE_MONTHS[sub.billingCycle] || 1;
+
+  // Guard against non-positive cycle which would cause infinite loop
+  if (cycleMonths <= 0) return [];
+
+  // Start from the next renewal date and step forward
+  let current = new Date(sub.nextRenewalDate);
+  const monthStart = new Date(year, month - 1, 1);
+  const monthEnd = new Date(year, month, 0); // last day of month
+
+  // Safety limit to prevent runaway loops (max 100 iterations)
+  let iterations = 0;
+
+  // Step forward from renewal date in billing cycle increments
+  while (current <= monthEnd && iterations < 100) {
+    iterations++;
+    if (current >= monthStart && current <= monthEnd) {
+      renewals.push(current.toISOString().slice(0, 10));
+    }
+
+    if (cycleMonths >= 1) {
+      current = new Date(
+        current.getFullYear(),
+        current.getMonth() + Math.round(cycleMonths),
+        current.getDate()
+      );
+    } else {
+      // Weekly / fortnightly
+      const days = Math.round(cycleMonths * 30.44);
+      current = new Date(current.getTime() + days * 24 * 60 * 60 * 1000);
+    }
+  }
+
+  return renewals;
+}

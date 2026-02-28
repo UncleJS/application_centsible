@@ -1,0 +1,77 @@
+# ── Centsible API ─────────────────────────────────────────────
+# Multi-stage Bun build for the Elysia backend API.
+# Build context: monorepo root (../../)
+# Usage: podman build -t centsible-api:latest -f infra/Containerfile.api .
+
+# ── Stage 1: Install + build ─────────────────────────────────
+FROM docker.io/oven/bun:1.3.8-alpine AS build
+
+WORKDIR /app
+
+# Copy ALL workspace package.json files for lockfile resolution
+COPY package.json bunfig.toml bun.lock ./
+COPY packages/shared/package.json packages/shared/
+COPY packages/api/package.json packages/api/
+COPY packages/web/package.json packages/web/
+
+# Install all deps (including dev for build step)
+RUN bun install --frozen-lockfile
+
+# Copy source
+COPY packages/shared/ packages/shared/
+COPY packages/api/ packages/api/
+
+# Build the API bundle
+RUN bun build packages/api/src/index.ts \
+  --outdir packages/api/dist \
+  --target bun \
+  --minify
+
+# ── Stage 2: Production runtime ──────────────────────────────
+FROM docker.io/oven/bun:1.3.8-alpine AS runtime
+
+WORKDIR /app
+
+# Non-root user for security
+RUN addgroup -g 1001 -S centsible && \
+    adduser -u 1001 -S centsible -G centsible
+
+# Copy ALL workspace package.json files for lockfile resolution
+COPY package.json bunfig.toml bun.lock ./
+COPY packages/shared/package.json packages/shared/
+COPY packages/api/package.json packages/api/
+COPY packages/web/package.json packages/web/
+
+# Install production-only dependencies
+RUN bun install --frozen-lockfile --production && \
+    rm -rf /root/.bun/install/cache
+
+# Copy built output
+COPY --from=build /app/packages/api/dist/ packages/api/dist/
+
+# Copy shared source (needed at runtime for re-exports)
+COPY packages/shared/src/ packages/shared/src/
+
+# Copy migrations
+COPY packages/api/drizzle/ packages/api/drizzle/
+
+# Copy migration + seed runners
+COPY packages/api/src/db/migrate.ts packages/api/src/db/migrate.ts
+COPY packages/api/src/db/seed.ts packages/api/src/db/seed.ts
+COPY packages/api/src/db/index.ts packages/api/src/db/index.ts
+COPY packages/api/src/db/schema.ts packages/api/src/db/schema.ts
+COPY packages/api/drizzle.config.ts packages/api/drizzle.config.ts
+
+# Copy entrypoint
+COPY infra/api-entrypoint.sh /app/api-entrypoint.sh
+RUN chmod +x /app/api-entrypoint.sh
+
+ENV NODE_ENV=production
+# Port is set by API_PORT env var at runtime (default 4000, quadlet sets 10301).
+# EXPOSE is documentary only — pod networking handles port publishing.
+EXPOSE 4000 10301
+
+USER centsible
+
+ENTRYPOINT ["/app/api-entrypoint.sh"]
+CMD ["bun", "run", "packages/api/dist/index.js"]

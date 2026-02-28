@@ -1,0 +1,32 @@
+# Centsible Web Frontend Container (runs in centsible pod)
+# Accessible at http://localhost:10300
+# Connects to backend API via pod localhost:10301
+
+[Unit]
+Description=Centsible Web Frontend (Pod)
+Documentation=https://nextjs.org/docs
+After=network-online.target centsible-api.service
+Requires=centsible-api.service
+BindsTo=centsible-pod.service
+After=centsible-pod.service
+
+[Container]
+Image=localhost/centsible-web:latest
+ContainerName=centsible-web
+AutoUpdate=local
+
+# Run in the centsible pod
+Pod=centsible.pod
+
+# Environment variables
+Environment=NODE_ENV=production
+Environment=NEXT_PUBLIC_API_URL=http://localhost:10301
+Environment=HOSTNAME=0.0.0.0
+Environment=PORT=10300
+
+[Service]
+Restart=always
+TimeoutStartSec=120
+
+[Install]
+WantedBy=default.target

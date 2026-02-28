@@ -1,0 +1,17 @@
+# Centsible Pod
+# All containers share localhost networking within the pod.
+# Web: 10300, API: 10301, MariaDB: internal only (3306)
+
+[Unit]
+Description=Centsible Pod
+Documentation=https://docs.podman.io/en/latest/markdown/podman-pod-create.1.html
+
+[Pod]
+PodName=centsible
+Network=slirp4netns:port_handler=slirp4netns
+PublishPort=0.0.0.0:10300:10300
+PublishPort=0.0.0.0:10301:10301
+# 3306 — MariaDB NOT exposed externally
+
+[Install]
+WantedBy=default.target

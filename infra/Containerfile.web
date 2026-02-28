@@ -1,0 +1,62 @@
+# ── Centsible Web (Next.js Standalone) ────────────────────────
+# Multi-stage build: Bun for install/build, minimal runtime.
+# Build context: monorepo root (../../)
+# Usage: podman build -t centsible-web:latest -f infra/Containerfile.web .
+
+# ── Stage 1: Install dependencies ────────────────────────────
+FROM docker.io/oven/bun:1.3.8-alpine AS deps
+
+WORKDIR /app
+
+# Copy ALL workspace package.json files for lockfile resolution
+COPY package.json bunfig.toml bun.lock ./
+COPY packages/shared/package.json packages/shared/
+COPY packages/api/package.json packages/api/
+COPY packages/web/package.json packages/web/
+
+# Install all dependencies (including dev for build)
+RUN bun install --frozen-lockfile
+
+# ── Stage 2: Build ───────────────────────────────────────────
+FROM docker.io/oven/bun:1.3.8-alpine AS build
+
+WORKDIR /app
+
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/packages/shared/node_modules ./packages/shared/node_modules
+COPY --from=deps /app/packages/web/node_modules ./packages/web/node_modules
+
+# Copy source
+COPY package.json bunfig.toml ./
+COPY packages/shared/ packages/shared/
+COPY packages/web/ packages/web/
+
+# Build-time env: API URL will be overridden at runtime for SSR,
+# but NEXT_PUBLIC_* is baked in at build time for client code.
+# Use a placeholder that the pod will resolve via localhost.
+ARG NEXT_PUBLIC_API_URL=http://localhost:4000
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+
+RUN cd packages/web && bun run build
+
+# ── Stage 3: Production runtime ──────────────────────────────
+FROM docker.io/oven/bun:1.3.8-alpine AS runtime
+
+WORKDIR /app
+
+# Non-root user
+RUN addgroup -g 1001 -S centsible && \
+    adduser -u 1001 -S centsible -G centsible
+
+# Next.js standalone output includes everything needed
+COPY --from=build --chown=centsible:centsible /app/packages/web/.next/standalone ./
+COPY --from=build --chown=centsible:centsible /app/packages/web/.next/static ./packages/web/.next/static
+COPY --from=build --chown=centsible:centsible /app/packages/web/public ./packages/web/public
+
+ENV NODE_ENV=production
+ENV HOSTNAME=0.0.0.0
+EXPOSE 3000
+
+USER centsible
+
+CMD ["bun", "run", "packages/web/server.js"]

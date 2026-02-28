@@ -1,0 +1,19 @@
+{
+  "name": "centsible",
+  "private": true,
+  "workspaces": ["packages/*"],
+  "scripts": {
+    "dev:api": "bun run --filter @centsible/api dev",
+    "dev:web": "bun run --filter @centsible/web dev",
+    "dev": "bun run dev:api & bun run dev:web",
+    "build": "bun run --filter '*' build",
+    "db:generate": "bun run --filter @centsible/api db:generate",
+    "db:migrate": "bun run --filter @centsible/api db:migrate",
+    "db:studio": "bun run --filter @centsible/api db:studio",
+    "lint": "bun run --filter '*' lint",
+    "typecheck": "bun run --filter '*' typecheck"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3"
+  }
+}
