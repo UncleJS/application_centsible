@@ -19,6 +19,7 @@ Centsible is a self-hosted personal finance tracker. This guide walks you throug
   - [Filtering and Searching](#filtering-and-searching)
 - [Budgets](#budgets)
   - [Setting a Budget](#setting-a-budget)
+  - [Budget Summary Cards](#budget-summary-cards)
   - [How Budget Spending is Calculated](#how-budget-spending-is-calculated)
   - [Budget Colour Indicators](#budget-colour-indicators)
 - [Subscriptions](#subscriptions)
@@ -189,6 +190,41 @@ Click **Add Budget** and choose:
 | Currency | Yes | The currency for this budget |
 
 > **Rule:** Each `(category, year, month)` combination is unique per user. If you submit a budget for a combination that already exists, it will be **updated in place** (upsert). You cannot have two budgets for the same category in the same month.
+
+### Budget Summary Cards
+
+Six summary cards appear at the top of the Budgets page, giving a complete picture of your monthly financial commitments.
+
+| Card | Calculation | Notes |
+|---|---|---|
+| **Total Budgeted** | Sum of all budget amounts for the selected month | Set directly by you per category |
+| **Total Spent** | Sum of all non-archived expense transactions that fall within the selected month and match a budgeted category | Updates live as you record transactions |
+| **Remaining** | `Total Budgeted − Total Spent` | Green when positive, red when over-budget |
+| **Monthly Subscriptions** | Sum of each subscription's amount normalised to a monthly equivalent using its billing cycle | `amount ÷ cycleInMonths`; see [Billing Cycles](#billing-cycles) for the divisors. Includes all active subscriptions regardless of the selected budget month. |
+| **Monthly Savings** | Sum of `(targetAmount − currentAmount) ÷ monthsUntil(targetDate)` for every active, incomplete, non-overdue savings goal | The amount you need to set aside this month across all goals to stay on track. Goals where `currentAmount ≥ targetAmount` or where the target date has passed are excluded. |
+| **Monthly Committed** | `Total Budgeted + Monthly Subscriptions + Monthly Savings` | Your total monthly financial commitment: planned category spending plus recurring charges plus savings obligations. |
+
+#### Monthly Subscriptions — billing cycle normalisation
+
+Each subscription is converted to a monthly equivalent using the same divisors as the Subscriptions page:
+
+| Billing cycle | Divisor (cycleInMonths) | Effect |
+|---|---|---|
+| Weekly | 1 ÷ 4.33 ≈ 0.231 | Amount × 4.33 |
+| Fortnightly | 1 ÷ 2.17 ≈ 0.461 | Amount × 2.17 |
+| Monthly | 1 | Amount unchanged |
+| Quarterly | 3 | Amount ÷ 3 |
+| Yearly | 12 | Amount ÷ 12 |
+
+#### Monthly Savings — per-goal formula
+
+For each eligible goal:
+
+```
+monthlyNeeded = (targetAmount − currentAmount) ÷ monthsUntil(targetDate)
+```
+
+Where `monthsUntil` is the number of whole months from today to the goal's target date (minimum 1). This matches the figure shown on each goal card on the Savings Goals page.
 
 ### How Budget Spending is Calculated
 

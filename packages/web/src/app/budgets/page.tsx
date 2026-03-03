@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
 import { formatCurrency, getMonthName } from "@/lib/format";
@@ -38,7 +38,11 @@ import {
   ChevronRight,
   Loader2,
   PiggyBank,
+  CreditCard,
+  Target,
+  TrendingDown,
 } from "lucide-react";
+import { BILLING_CYCLE_MONTHS } from "@centsible/shared";
 
 interface Budget {
   id: number;
@@ -54,6 +58,20 @@ interface Category {
   id: number;
   name: string;
   type: string;
+}
+
+interface Subscription {
+  id: number;
+  amount: string;
+  billingCycle: string;
+}
+
+interface SavingsGoal {
+  id: number;
+  targetAmount: string;
+  currentAmount: string;
+  targetDate: string;
+  archivedAt: string | null;
 }
 
 function getProgressColor(pct: number): string {
@@ -86,8 +104,8 @@ function BudgetCardSkeleton() {
 
 function SummarySkeleton() {
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 animate-pulse">
-      {[0, 1, 2].map((i) => (
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 animate-pulse">
+      {[0, 1, 2, 3, 4, 5].map((i) => (
         <div
           key={i}
           className="rounded-xl border border-zinc-800 bg-zinc-900 p-6 flex flex-col gap-3"
@@ -371,6 +389,8 @@ export default function BudgetsPage() {
 
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
@@ -402,13 +422,33 @@ export default function BudgetsPage() {
     }
   }, []);
 
+  const fetchSubscriptions = useCallback(async () => {
+    try {
+      const res = await api.getSubscriptions();
+      setSubscriptions(res.data ?? []);
+    } catch {
+      // non-critical
+    }
+  }, []);
+
+  const fetchSavingsGoals = useCallback(async () => {
+    try {
+      const res = await api.getSavingsGoals();
+      setSavingsGoals(res.data ?? []);
+    } catch {
+      // non-critical
+    }
+  }, []);
+
   useEffect(() => {
     fetchBudgets();
   }, [fetchBudgets]);
 
   useEffect(() => {
     fetchCategories();
-  }, [fetchCategories]);
+    fetchSubscriptions();
+    fetchSavingsGoals();
+  }, [fetchCategories, fetchSubscriptions, fetchSavingsGoals]);
 
   function prevMonth() {
     if (month === 1) {
@@ -462,6 +502,46 @@ export default function BudgetsPage() {
     0
   );
   const totalRemaining = totalBudgeted - totalSpent;
+
+  // Total monthly subscription cost — each subscription normalised to a
+  // monthly equivalent using the same BILLING_CYCLE_MONTHS divisors as the
+  // Subscriptions page (amount / cycleInMonths = monthly equivalent).
+  const totalMonthlySubscriptions = useMemo(
+    () =>
+      subscriptions.reduce((sum, sub) => {
+        const cycleMonths = BILLING_CYCLE_MONTHS[sub.billingCycle] ?? 1;
+        return sum + parseFloat(sub.amount) / cycleMonths;
+      }, 0),
+    [subscriptions]
+  );
+
+  // Total monthly savings needed — mirrors the per-goal "X / month needed"
+  // figure on the Savings page exactly: same formula, same monthsUntil call.
+  // We snapshot `now` once so every goal uses the same instant, preventing
+  // fractional drift between goals evaluated milliseconds apart.
+  const totalMonthlySavings = useMemo(() => {
+    const now = new Date();
+    return savingsGoals.reduce((sum, goal) => {
+      if (goal.archivedAt) return sum;
+      const current = parseFloat(goal.currentAmount || "0");
+      const target = parseFloat(goal.targetAmount || "0");
+      if (current >= target) return sum;
+
+      // Replicate monthsUntil but with a fixed `now` snapshot
+      const targetDate = new Date(goal.targetDate);
+      if (targetDate <= now) return sum;
+      const years = targetDate.getFullYear() - now.getFullYear();
+      const months = targetDate.getMonth() - now.getMonth();
+      const days = targetDate.getDate() - now.getDate();
+      const fractional = years * 12 + months + days / 30;
+      if (fractional <= 0) return sum;
+
+      return sum + (target - current) / fractional;
+    }, 0);
+  }, [savingsGoals]);
+
+  // Grand total monthly commitment: budgets + subscriptions + savings
+  const totalMonthlyCommitted = totalBudgeted + totalMonthlySubscriptions + totalMonthlySavings;
 
   const budgetedCategoryIds = new Set(budgets.map((b) => b.categoryId));
 
@@ -519,7 +599,8 @@ export default function BudgetsPage() {
       {loading ? (
         <SummarySkeleton />
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {/* ── Existing 3 ── */}
           <Card className="bg-zinc-900 border-zinc-800">
             <CardContent className="flex flex-col gap-1 pt-6">
               <p className="text-xs uppercase tracking-widest font-medium text-zinc-500">
@@ -557,6 +638,58 @@ export default function BudgetsPage() {
                 }`}
               >
                 {formatCurrency(totalRemaining, currency)}
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* ── 3 new cards ── */}
+          <Card className="bg-zinc-900 border-zinc-800">
+            <CardContent className="flex flex-col gap-1 pt-6">
+              <div className="flex items-center gap-2 mb-0.5">
+                <CreditCard className="size-3.5 text-amber-400" />
+                <p className="text-xs uppercase tracking-widest font-medium text-zinc-500">
+                  Monthly Subscriptions
+                </p>
+              </div>
+              <p className="text-2xl font-bold font-mono text-zinc-100">
+                {formatCurrency(totalMonthlySubscriptions, currency)}
+              </p>
+              <p className="text-xs text-zinc-600">
+                normalised across all billing cycles
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-zinc-900 border-zinc-800">
+            <CardContent className="flex flex-col gap-1 pt-6">
+              <div className="flex items-center gap-2 mb-0.5">
+                <Target className="size-3.5 text-blue-400" />
+                <p className="text-xs uppercase tracking-widest font-medium text-zinc-500">
+                  Monthly Savings
+                </p>
+              </div>
+              <p className="text-2xl font-bold font-mono text-zinc-100">
+                {formatCurrency(totalMonthlySavings, currency)}
+              </p>
+              <p className="text-xs text-zinc-600">
+                needed to stay on track across all goals
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-zinc-900 border-zinc-800">
+            <CardContent className="flex flex-col gap-1 pt-6">
+              <div className="flex items-center gap-2 mb-0.5">
+                <TrendingDown className="size-3.5 text-purple-400" />
+                <p className="text-xs uppercase tracking-widest font-medium text-zinc-500">
+                  Monthly Committed
+                </p>
+              </div>
+              <p className="text-2xl font-bold font-mono text-purple-300">
+                {formatCurrency(totalMonthlyCommitted, currency)}
+              </p>
+              <p className="text-xs text-zinc-600">
+                budgets + subscriptions + savings
               </p>
             </CardContent>
           </Card>
