@@ -1,6 +1,6 @@
 -- Drop the type column from subscriptions (subscriptions are expense-only)
 ALTER TABLE `subscriptions` DROP COLUMN `type`;
-
+--> statement-breakpoint
 -- Create the dedicated recurring_income table
 CREATE TABLE `recurring_income` (
   `id` int NOT NULL AUTO_INCREMENT,
