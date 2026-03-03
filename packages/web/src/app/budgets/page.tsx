@@ -515,28 +515,31 @@ export default function BudgetsPage() {
     [subscriptions]
   );
 
-  // Total monthly savings needed — mirrors the per-goal "X / month needed"
-  // figure on the Savings page exactly: same formula, same monthsUntil call.
-  // We snapshot `now` once so every goal uses the same instant, preventing
-  // fractional drift between goals evaluated milliseconds apart.
+  // Total monthly savings needed — uses the same whole-calendar-month formula
+  // as the forecast API (reports.ts): (targetYear - nowYear)*12 + (targetMonth - nowMonth).
+  // We snapshot `now` once so every goal uses the same instant.
   const totalMonthlySavings = useMemo(() => {
     const now = new Date();
+    const nowYear = now.getFullYear();
+    const nowMonth = now.getMonth() + 1; // 1-based
     return savingsGoals.reduce((sum, goal) => {
       if (goal.archivedAt) return sum;
       const current = parseFloat(goal.currentAmount || "0");
       const target = parseFloat(goal.targetAmount || "0");
       if (current >= target) return sum;
 
-      // Replicate monthsUntil but with a fixed `now` snapshot
-      const targetDate = new Date(goal.targetDate);
-      if (targetDate <= now) return sum;
-      const years = targetDate.getFullYear() - now.getFullYear();
-      const months = targetDate.getMonth() - now.getMonth();
-      const days = targetDate.getDate() - now.getDate();
-      const fractional = years * 12 + months + days / 30;
-      if (fractional <= 0) return sum;
+      const targetDate = new Date(goal.targetDate + "T00:00:00Z");
+      const targetYear = targetDate.getUTCFullYear();
+      const targetMonth = targetDate.getUTCMonth() + 1; // 1-based
+      const monthsRemaining = Math.max(
+        1,
+        (targetYear - nowYear) * 12 + (targetMonth - nowMonth)
+      );
 
-      return sum + (target - current) / fractional;
+      // Skip goals whose target date is already past
+      if ((targetYear - nowYear) * 12 + (targetMonth - nowMonth) <= 0) return sum;
+
+      return sum + (target - current) / monthsRemaining;
     }, 0);
   }, [savingsGoals]);
 
