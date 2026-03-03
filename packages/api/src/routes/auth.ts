@@ -1,7 +1,7 @@
 import { Elysia, t } from "elysia";
 import { jwt } from "@elysiajs/jwt";
 import { db, schema } from "../db";
-import { eq, and, isNull, gt } from "drizzle-orm";
+import { eq, and, isNull, gt, lte, or, isNotNull } from "drizzle-orm";
 import { hash, verify } from "argon2";
 import {
   DEFAULT_EXPENSE_CATEGORIES,
@@ -9,8 +9,31 @@ import {
 } from "@centsible/shared";
 import { config } from "../config";
 import { authRateLimit } from "../middleware/rate-limit";
+import { authMiddleware } from "../middleware/auth";
+import {
+  ACCESS_TOKEN_COOKIE,
+  CSRF_TOKEN_COOKIE,
+  REFRESH_TOKEN_COOKIE,
+  clearSessionCookies,
+  generateCsrfToken,
+  setSessionCookies,
+} from "../auth/session";
 
 const REFRESH_TOKEN_QUERY_LIMIT = 10;
+
+async function pruneRefreshTokens(userId: number): Promise<void> {
+  await db
+    .delete(schema.refreshTokens)
+    .where(
+      and(
+        eq(schema.refreshTokens.userId, userId),
+        or(
+          isNotNull(schema.refreshTokens.revokedAt),
+          lte(schema.refreshTokens.expiresAt, new Date())
+        )
+      )
+    );
+}
 
 export const authRoutes = new Elysia({ prefix: "/auth", detail: { tags: ["Auth"] } })
   .use(authRateLimit)
@@ -31,7 +54,7 @@ export const authRoutes = new Elysia({ prefix: "/auth", detail: { tags: ["Auth"]
   // ── Register ──
   .post(
     "/register",
-    async ({ body, jwt, refreshJwt, set }) => {
+    async ({ body, jwt, refreshJwt, set, cookie }) => {
       const { email, password, name, defaultCurrency } = body;
 
       // Check if email already exists
@@ -90,11 +113,13 @@ export const authRoutes = new Elysia({ prefix: "/auth", detail: { tags: ["Auth"]
         expiresAt: new Date(Date.now() + config.refreshTokenDays * 24 * 60 * 60 * 1000),
       });
 
+      const csrfToken = generateCsrfToken();
+      setSessionCookies(cookie as Record<string, any>, accessToken, refreshToken, csrfToken);
+
       set.status = 201;
       return {
         data: {
           user: { id: userId, email, name, defaultCurrency: defaultCurrency ?? "GBP" },
-          tokens: { accessToken, refreshToken },
         },
       };
     },
@@ -116,7 +141,7 @@ export const authRoutes = new Elysia({ prefix: "/auth", detail: { tags: ["Auth"]
   // ── Login ──
   .post(
     "/login",
-    async ({ body, jwt, refreshJwt, set }) => {
+    async ({ body, jwt, refreshJwt, set, cookie }) => {
       const { email, password } = body;
 
       const [user] = await db
@@ -140,11 +165,15 @@ export const authRoutes = new Elysia({ prefix: "/auth", detail: { tags: ["Auth"]
       const refreshToken = await refreshJwt.sign({ sub: String(user.id) });
 
       const tokenHash = await hash(refreshToken);
+      await pruneRefreshTokens(user.id);
       await db.insert(schema.refreshTokens).values({
         userId: user.id,
         tokenHash,
         expiresAt: new Date(Date.now() + config.refreshTokenDays * 24 * 60 * 60 * 1000),
       });
+
+      const csrfToken = generateCsrfToken();
+      setSessionCookies(cookie as Record<string, any>, accessToken, refreshToken, csrfToken);
 
       return {
         data: {
@@ -154,22 +183,30 @@ export const authRoutes = new Elysia({ prefix: "/auth", detail: { tags: ["Auth"]
             name: user.name,
             defaultCurrency: user.defaultCurrency,
           },
-          tokens: { accessToken, refreshToken },
         },
       };
     },
     {
       body: t.Object({
         email: t.String({ format: "email", error: "Invalid email address" }),
-        password: t.String({ minLength: 1, error: "Password is required" }),
+        password: t.String({ minLength: 8, maxLength: 128, error: "Invalid password" }),
       }),
     }
   )
   // ── Refresh Token ──
   .post(
     "/refresh",
-    async ({ body, jwt, refreshJwt, set }) => {
-      const { refreshToken } = body;
+    async ({ body, jwt, refreshJwt, set, cookie }) => {
+      const refreshTokenFromBody = body.refreshToken;
+      const refreshTokenFromCookie = String(
+        (cookie as Record<string, any>)[REFRESH_TOKEN_COOKIE]?.value ?? ""
+      );
+      const refreshToken = refreshTokenFromBody || refreshTokenFromCookie;
+
+      if (!refreshToken) {
+        set.status = 401;
+        return { error: "Invalid refresh token" };
+      }
 
       const payload = await refreshJwt.verify(refreshToken);
       if (!payload || typeof payload.sub !== "string") {
@@ -178,6 +215,8 @@ export const authRoutes = new Elysia({ prefix: "/auth", detail: { tags: ["Auth"]
       }
 
       const userId = Number(payload.sub);
+
+      await pruneRefreshTokens(userId);
 
       // Verify refresh token exists, is not revoked, and is not expired
       const storedTokens = await db
@@ -230,26 +269,45 @@ export const authRoutes = new Elysia({ prefix: "/auth", detail: { tags: ["Auth"]
         expiresAt: new Date(Date.now() + config.refreshTokenDays * 24 * 60 * 60 * 1000),
       });
 
+      const csrfToken = generateCsrfToken();
+      setSessionCookies(
+        cookie as Record<string, any>,
+        newAccessToken,
+        newRefreshToken,
+        csrfToken
+      );
+
       return {
         data: {
-          tokens: { accessToken: newAccessToken, refreshToken: newRefreshToken },
+          ok: true,
         },
       };
     },
     {
       body: t.Object({
-        refreshToken: t.String(),
+        refreshToken: t.Optional(t.String()),
       }),
     }
   )
   // ── Logout ──
   .post(
     "/logout",
-    async ({ body, refreshJwt }) => {
+    async ({ body, refreshJwt, headers, set, cookie }) => {
+      const cookieJar = cookie as Record<string, any>;
+      const cookieRefreshToken = String(cookieJar[REFRESH_TOKEN_COOKIE]?.value ?? "");
+      const csrfCookie = String(cookieJar[CSRF_TOKEN_COOKIE]?.value ?? "");
+      const csrfHeader = headers["x-csrf-token"];
+
+      if (cookieRefreshToken && (!csrfCookie || !csrfHeader || csrfCookie !== csrfHeader)) {
+        set.status = 403;
+        return { error: "Invalid CSRF token" };
+      }
+
       // Best-effort revocation — always return success to avoid info leaks
       try {
-        const { refreshToken } = body;
+        const refreshToken = body.refreshToken || cookieRefreshToken;
         if (!refreshToken) {
+          clearSessionCookies(cookieJar);
           return { data: { message: "Logged out successfully" } };
         }
 
@@ -259,6 +317,8 @@ export const authRoutes = new Elysia({ prefix: "/auth", detail: { tags: ["Auth"]
         }
 
         const userId = Number(payload.sub);
+
+        await pruneRefreshTokens(userId);
 
         // Find and revoke the matching token
         const storedTokens = await db
@@ -290,6 +350,8 @@ export const authRoutes = new Elysia({ prefix: "/auth", detail: { tags: ["Auth"]
         // Swallow errors — logout should always succeed from the client's perspective
       }
 
+      clearSessionCookies(cookieJar);
+
       return { data: { message: "Logged out successfully" } };
     },
     {
@@ -297,4 +359,8 @@ export const authRoutes = new Elysia({ prefix: "/auth", detail: { tags: ["Auth"]
         refreshToken: t.Optional(t.String()),
       }),
     }
-  );
+  )
+  .use(authMiddleware)
+  .get("/me", ({ user }) => {
+    return { data: { user } };
+  });

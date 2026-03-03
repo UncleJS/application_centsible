@@ -1,7 +1,7 @@
 import { Elysia, t } from "elysia";
 import { authMiddleware } from "../middleware/auth";
 import { db, schema } from "../db";
-import { eq, and, isNull, sql } from "drizzle-orm";
+import { eq, and, isNull, sql, gte, lt } from "drizzle-orm";
 
 const amountPattern = "^\\d+(\\.\\d{1,2})?$";
 
@@ -37,6 +37,11 @@ export const budgetRoutes = new Elysia({
         return { error: result.error };
       }
       const { year, month } = result;
+      const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
+      const endDate =
+        month === 12
+          ? `${year + 1}-01-01`
+          : `${year}-${String(month + 1).padStart(2, "0")}-01`;
 
       const rows = await db
         .select({
@@ -50,6 +55,7 @@ export const budgetRoutes = new Elysia({
           month: schema.budgets.month,
           amount: schema.budgets.amount,
           currency: schema.budgets.currency,
+          spent: sql<string>`COALESCE(SUM(${schema.transactions.amount}), 0.00)`,
           createdAt: schema.budgets.createdAt,
           updatedAt: schema.budgets.updatedAt,
         })
@@ -58,6 +64,17 @@ export const budgetRoutes = new Elysia({
           schema.categories,
           eq(schema.budgets.categoryId, schema.categories.id)
         )
+        .leftJoin(
+          schema.transactions,
+          and(
+            eq(schema.transactions.userId, user.id),
+            eq(schema.transactions.categoryId, schema.budgets.categoryId),
+            eq(schema.transactions.type, "expense"),
+            isNull(schema.transactions.archivedAt),
+            gte(schema.transactions.date, startDate),
+            lt(schema.transactions.date, endDate)
+          )
+        )
         .where(
           and(
             eq(schema.budgets.userId, user.id),
@@ -65,6 +82,20 @@ export const budgetRoutes = new Elysia({
             eq(schema.budgets.month, month),
             isNull(schema.budgets.archivedAt)
           )
+        )
+        .groupBy(
+          schema.budgets.id,
+          schema.budgets.userId,
+          schema.budgets.categoryId,
+          schema.categories.name,
+          schema.categories.icon,
+          schema.categories.color,
+          schema.budgets.year,
+          schema.budgets.month,
+          schema.budgets.amount,
+          schema.budgets.currency,
+          schema.budgets.createdAt,
+          schema.budgets.updatedAt
         );
 
       return { data: rows };

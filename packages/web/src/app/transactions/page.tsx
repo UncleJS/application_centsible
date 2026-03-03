@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, useMemo } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
 import { formatCurrency, formatDate, getToday } from "@/lib/format";
@@ -59,7 +59,6 @@ interface Transaction {
   type: "income" | "expense";
   categoryId: number;
   date: string;
-  notes?: string;
   category?: {
     id: number;
     name: string;
@@ -81,7 +80,6 @@ interface FormState {
   type: "income" | "expense";
   categoryId: string;
   date: string;
-  notes: string;
 }
 
 const EMPTY_FORM: FormState = {
@@ -90,7 +88,6 @@ const EMPTY_FORM: FormState = {
   type: "expense",
   categoryId: "",
   date: getToday(),
-  notes: "",
 };
 
 export default function TransactionsPage() {
@@ -140,8 +137,8 @@ export default function TransactionsPage() {
         };
         if (filterType) params.type = filterType;
         if (filterCategoryId) params.categoryId = filterCategoryId;
-        if (filterFrom) params.from = filterFrom;
-        if (filterTo) params.to = filterTo;
+        if (filterFrom) params.dateFrom = filterFrom;
+        if (filterTo) params.dateTo = filterTo;
         if (search) params.search = search;
 
         const res = await api.getTransactions(params);
@@ -192,7 +189,6 @@ export default function TransactionsPage() {
       type: tx.type,
       categoryId: String(tx.categoryId),
       date: formatDate(tx.date),
-      notes: tx.notes ?? "",
     });
     setDialogOpen(true);
   };
@@ -224,10 +220,6 @@ export default function TransactionsPage() {
       categoryId: Number(form.categoryId),
       date: form.date,
     };
-    if (form.notes.trim()) {
-      body.notes = form.notes.trim();
-    }
-
     setSubmitting(true);
     try {
       if (editingTx) {
@@ -426,18 +418,6 @@ export default function TransactionsPage() {
                 onChange={(v) => setForm((p) => ({ ...p, date: v }))}
                 required
               />
-
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="tx-notes">Notes</Label>
-                <Input
-                  id="tx-notes"
-                  placeholder="Optional note"
-                  value={form.notes}
-                  onChange={(e) =>
-                    setForm((p) => ({ ...p, notes: e.target.value }))
-                  }
-                />
-              </div>
 
               <DialogFooter className="pt-2">
                 <Button
@@ -644,14 +624,6 @@ export default function TransactionsPage() {
 
                       <TableCell className="text-zinc-100 max-w-[200px] truncate">
                         <span title={tx.description}>{tx.description}</span>
-                        {tx.notes && (
-                          <span
-                            className="block text-xs text-zinc-500 truncate"
-                            title={tx.notes}
-                          >
-                            {tx.notes}
-                          </span>
-                        )}
                       </TableCell>
 
                       <TableCell className="text-zinc-300">

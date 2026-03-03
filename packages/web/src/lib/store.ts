@@ -18,14 +18,14 @@ interface AuthState {
   hydrate: () => void;
 }
 
-const STORAGE_KEY = "centsible-auth";
+const STORAGE_KEY = "centsible-user";
 
-function saveToStorage(user: User, tokens: { accessToken: string; refreshToken: string }) {
+function saveToStorage(user: User) {
   if (typeof window === "undefined") return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ user, tokens }));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ user }));
 }
 
-function loadFromStorage(): { user: User; tokens: { accessToken: string; refreshToken: string } } | null {
+function loadFromStorage(): { user: User } | null {
   if (typeof window === "undefined") return null;
   const stored = localStorage.getItem(STORAGE_KEY);
   if (!stored) return null;
@@ -42,18 +42,10 @@ function clearStorage() {
 }
 
 export const useAuthStore = create<AuthState>((set) => {
-  // Set up token refresh callback
-  api.onRefresh((tokens) => {
-    const stored = loadFromStorage();
-    if (stored) {
-      saveToStorage(stored.user, tokens);
-    }
-  });
-
   api.onAuthError(() => {
     clearStorage();
     api.clearTokens();
-    set({ user: null, isAuthenticated: false });
+    set({ user: null, isAuthenticated: false, isLoading: false });
   });
 
   return {
@@ -63,17 +55,15 @@ export const useAuthStore = create<AuthState>((set) => {
 
     login: async (email: string, password: string) => {
       const result = await api.login({ email, password });
-      const { user, tokens } = result.data;
-      api.setTokens(tokens.accessToken, tokens.refreshToken);
-      saveToStorage(user, tokens);
+      const { user } = result.data;
+      saveToStorage(user);
       set({ user, isAuthenticated: true });
     },
 
     register: async (email: string, password: string, name: string, defaultCurrency?: string) => {
       const result = await api.register({ email, password, name, defaultCurrency });
-      const { user, tokens } = result.data;
-      api.setTokens(tokens.accessToken, tokens.refreshToken);
-      saveToStorage(user, tokens);
+      const { user } = result.data;
+      saveToStorage(user);
       set({ user, isAuthenticated: true });
     },
 
@@ -87,11 +77,20 @@ export const useAuthStore = create<AuthState>((set) => {
     hydrate: () => {
       const stored = loadFromStorage();
       if (stored) {
-        api.setTokens(stored.tokens.accessToken, stored.tokens.refreshToken);
-        set({ user: stored.user, isAuthenticated: true, isLoading: false });
-      } else {
-        set({ isLoading: false });
+        set({ user: stored.user, isAuthenticated: true });
       }
+
+      api
+        .getCurrentUser()
+        .then((result) => {
+          const user = result.data.user;
+          saveToStorage(user);
+          set({ user, isAuthenticated: true, isLoading: false });
+        })
+        .catch(() => {
+          clearStorage();
+          set({ user: null, isAuthenticated: false, isLoading: false });
+        });
     },
   };
 });

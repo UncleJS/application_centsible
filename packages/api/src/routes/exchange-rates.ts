@@ -5,6 +5,7 @@ import { eq, and, sql } from "drizzle-orm";
 import { EXCHANGE_RATE_API_BASE, SUPPORTED_CURRENCIES } from "@centsible/shared";
 
 const supportedSet = new Set<string>(SUPPORTED_CURRENCIES);
+const MAX_CONVERSION_AMOUNT = 1_000_000_000;
 
 function isValidCurrency(code: string): boolean {
   return supportedSet.has(code.toUpperCase());
@@ -121,6 +122,10 @@ export const exchangeRateRoutes = new Elysia({
     if (Number.isNaN(numAmount) || numAmount <= 0) {
       set.status = 400;
       return { error: "Amount must be a positive number" };
+    }
+    if (numAmount > MAX_CONVERSION_AMOUNT) {
+      set.status = 400;
+      return { error: `Amount must be less than or equal to ${MAX_CONVERSION_AMOUNT}` };
     }
 
     try {

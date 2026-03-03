@@ -1,7 +1,7 @@
 import { Elysia, t } from "elysia";
 import { authMiddleware } from "../middleware/auth";
 import { db, schema } from "../db";
-import { eq, and, isNull, gte, lte, desc, sql } from "drizzle-orm";
+import { eq, and, isNull, gte, lte, desc, sql, like } from "drizzle-orm";
 
 const amountPattern = "^\\d+(\\.\\d{1,2})?$";
 const datePattern = "^\\d{4}-\\d{2}-\\d{2}$";
@@ -15,34 +15,49 @@ export const transactionRoutes = new Elysia({
   .get(
     "/",
     async ({ user, query, set }) => {
-      const page = Math.max(1, Number(query.page) || 1);
-      const pageSize = Math.min(100, Math.max(1, Number(query.pageSize) || 20));
+      const queryParams = query as Record<string, string | undefined>;
+      const page = Math.max(1, Number(queryParams.page) || 1);
+      const pageSize = Math.min(100, Math.max(1, Number(queryParams.pageSize) || 20));
+      const dateFrom = queryParams.dateFrom ?? queryParams.from;
+      const dateTo = queryParams.dateTo ?? queryParams.to;
+      const search = queryParams.search?.trim();
 
       const conditions = [
         eq(schema.transactions.userId, user.id),
         isNull(schema.transactions.archivedAt),
       ];
 
-      if (query.type) {
-        if (query.type !== "income" && query.type !== "expense") {
+      if (queryParams.type) {
+        if (queryParams.type !== "income" && queryParams.type !== "expense") {
           set.status = 400;
           return { error: "type must be 'income' or 'expense'" };
         }
-        conditions.push(eq(schema.transactions.type, query.type));
+        conditions.push(eq(schema.transactions.type, queryParams.type));
       }
-      if (query.categoryId) {
-        const catId = Number(query.categoryId);
+      if (queryParams.categoryId) {
+        const catId = Number(queryParams.categoryId);
         if (isNaN(catId) || catId <= 0) {
           set.status = 400;
           return { error: "categoryId must be a positive integer" };
         }
         conditions.push(eq(schema.transactions.categoryId, catId));
       }
-      if (query.dateFrom) {
-        conditions.push(gte(schema.transactions.date, query.dateFrom));
+      if (dateFrom) {
+        if (!new RegExp(datePattern).test(dateFrom)) {
+          set.status = 400;
+          return { error: "dateFrom must be YYYY-MM-DD format" };
+        }
+        conditions.push(gte(schema.transactions.date, dateFrom));
       }
-      if (query.dateTo) {
-        conditions.push(lte(schema.transactions.date, query.dateTo));
+      if (dateTo) {
+        if (!new RegExp(datePattern).test(dateTo)) {
+          set.status = 400;
+          return { error: "dateTo must be YYYY-MM-DD format" };
+        }
+        conditions.push(lte(schema.transactions.date, dateTo));
+      }
+      if (search) {
+        conditions.push(like(schema.transactions.description, `%${search.slice(0, 100)}%`));
       }
 
       const whereClause = and(...conditions);

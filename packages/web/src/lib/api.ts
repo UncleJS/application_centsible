@@ -10,17 +10,15 @@ import type {
   Subscription,
   MonthlySummary,
   ForecastMonth,
-  AuthTokens,
 } from "@centsible/shared";
 
 interface RequestOptions extends RequestInit {
-  token?: string;
+  skipRefresh?: boolean;
 }
 
 interface AuthResponse {
   data: {
     user: Omit<User, "createdAt" | "updatedAt">;
-    tokens: AuthTokens;
   };
 }
 
@@ -44,9 +42,6 @@ export function isSafeUrl(url: string): boolean {
 
 class ApiClient {
   private baseUrl: string;
-  private accessToken: string | null = null;
-  private refreshToken: string | null = null;
-  private onTokenRefreshed: ((tokens: AuthTokens) => void) | null = null;
   private onUnauthorized: (() => void) | null = null;
   private refreshPromise: Promise<boolean> | null = null;
 
@@ -54,19 +49,9 @@ class ApiClient {
     this.baseUrl = baseUrl;
   }
 
-  setTokens(accessToken: string, refreshToken: string) {
-    this.accessToken = accessToken;
-    this.refreshToken = refreshToken;
-  }
+  setTokens(_accessToken: string, _refreshToken: string) {}
 
-  clearTokens() {
-    this.accessToken = null;
-    this.refreshToken = null;
-  }
-
-  onRefresh(callback: (tokens: AuthTokens) => void) {
-    this.onTokenRefreshed = callback;
-  }
+  clearTokens() {}
 
   onAuthError(callback: () => void) {
     this.onUnauthorized = callback;
@@ -76,27 +61,37 @@ class ApiClient {
     path: string,
     options: RequestOptions = {}
   ): Promise<T> {
-    const { token, ...fetchOptions } = options;
+    const { skipRefresh, ...fetchOptions } = options;
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       ...(fetchOptions.headers as Record<string, string>),
     };
 
-    const authToken = token || this.accessToken;
-    if (authToken) {
-      headers.Authorization = `Bearer ${authToken}`;
+    const method = (fetchOptions.method || "GET").toUpperCase();
+    if (!["GET", "HEAD", "OPTIONS"].includes(method)) {
+      const csrfToken = this.getCsrfToken();
+      if (csrfToken) {
+        headers["x-csrf-token"] = csrfToken;
+      }
     }
 
     const response = await fetch(`${this.baseUrl}${path}`, {
       ...fetchOptions,
       headers,
+      credentials: "include",
     });
 
     // Handle token refresh
-    if (response.status === 401 && this.refreshToken && !token) {
+    if (
+      response.status === 401 &&
+      !skipRefresh &&
+      path !== "/auth/refresh" &&
+      path !== "/auth/login" &&
+      path !== "/auth/register"
+    ) {
       const refreshed = await this.tryRefresh();
       if (refreshed) {
-        return this.request<T>(path, { ...options, token: this.accessToken! });
+        return this.request<T>(path, { ...options, skipRefresh: true });
       }
       this.onUnauthorized?.();
       throw new Error("Session expired");
@@ -135,19 +130,28 @@ class ApiClient {
       const response = await fetch(`${this.baseUrl}/auth/refresh`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ refreshToken: this.refreshToken }),
+        body: JSON.stringify({}),
+        credentials: "include",
       });
 
       if (!response.ok) return false;
-
-      const data = await response.json();
-      this.accessToken = data.data.tokens.accessToken;
-      this.refreshToken = data.data.tokens.refreshToken;
-      this.onTokenRefreshed?.(data.data.tokens);
       return true;
     } catch {
       return false;
     }
+  }
+
+  private getCsrfToken(): string | null {
+    if (typeof document === "undefined") return null;
+
+    const match = document.cookie
+      .split(";")
+      .map((entry) => entry.trim())
+      .find((entry) => entry.startsWith("centsible_csrf_token="));
+
+    if (!match) return null;
+    const value = match.split("=").slice(1).join("=");
+    return value ? decodeURIComponent(value) : null;
   }
 
   // ── Auth ──
@@ -168,8 +172,12 @@ class ApiClient {
   async logout() {
     return this.request("/auth/logout", {
       method: "POST",
-      body: JSON.stringify({ refreshToken: this.refreshToken }),
+      body: JSON.stringify({}),
     });
+  }
+
+  async getCurrentUser() {
+    return this.request<{ data: { user: Omit<User, "createdAt" | "updatedAt"> } }>("/auth/me");
   }
 
   // ── Categories ──

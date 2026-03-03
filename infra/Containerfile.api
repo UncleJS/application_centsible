@@ -21,6 +21,9 @@ RUN bun install --frozen-lockfile
 COPY packages/shared/ packages/shared/
 COPY packages/api/ packages/api/
 
+# Re-link workspace node_modules after source copy
+RUN bun install --frozen-lockfile
+
 # Build the API bundle
 RUN bun build packages/api/src/index.ts \
   --outdir packages/api/dist \
@@ -60,6 +63,7 @@ COPY packages/api/src/db/migrate.ts packages/api/src/db/migrate.ts
 COPY packages/api/src/db/seed.ts packages/api/src/db/seed.ts
 COPY packages/api/src/db/index.ts packages/api/src/db/index.ts
 COPY packages/api/src/db/schema.ts packages/api/src/db/schema.ts
+COPY packages/api/src/config.ts packages/api/src/config.ts
 COPY packages/api/drizzle.config.ts packages/api/drizzle.config.ts
 
 # Copy entrypoint

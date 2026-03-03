@@ -18,6 +18,7 @@ const app = new Elysia()
     cors({
       origin: config.webUrl,
       credentials: true,
+      allowedHeaders: ["Content-Type", "Authorization", "X-CSRF-Token"],
     })
   )
   .use(generalRateLimit)

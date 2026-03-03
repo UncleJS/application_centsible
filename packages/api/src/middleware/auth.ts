@@ -3,6 +3,10 @@ import { jwt } from "@elysiajs/jwt";
 import { db, schema } from "../db";
 import { eq, and, isNull } from "drizzle-orm";
 import { config } from "../config";
+import {
+  ACCESS_TOKEN_COOKIE,
+  CSRF_TOKEN_COOKIE,
+} from "../auth/session";
 
 export type AuthUser = {
   id: number;
@@ -19,15 +23,37 @@ export const authMiddleware = new Elysia({ name: "auth-middleware" })
       exp: config.accessTokenExp,
     })
   )
-  .derive({ as: "global" }, async ({ jwt, headers, set }) => {
+  .derive({ as: "global" }, async ({ jwt, headers, set, cookie, request }) => {
     const authorization = headers.authorization;
-    if (!authorization?.startsWith("Bearer ")) {
+    const bearerToken = authorization?.startsWith("Bearer ")
+      ? authorization.slice(7)
+      : "";
+    const cookieToken = String(
+      (cookie as Record<string, any>)[ACCESS_TOKEN_COOKIE]?.value ?? ""
+    );
+    const accessToken = bearerToken || cookieToken;
+
+    if (!accessToken) {
       set.status = 401;
       throw new Error("Unauthorized: Missing or invalid token");
     }
 
-    const token = authorization.slice(7);
-    const payload = await jwt.verify(token);
+    const method = request.method.toUpperCase();
+    const requiresCsrf = method !== "GET" && method !== "HEAD" && method !== "OPTIONS";
+
+    if (requiresCsrf && !bearerToken) {
+      const csrfHeader = headers["x-csrf-token"];
+      const csrfCookie = String(
+        (cookie as Record<string, any>)[CSRF_TOKEN_COOKIE]?.value ?? ""
+      );
+
+      if (!csrfHeader || !csrfCookie || csrfHeader !== csrfCookie) {
+        set.status = 403;
+        throw new Error("Forbidden: Invalid CSRF token");
+      }
+    }
+
+    const payload = await jwt.verify(accessToken);
 
     if (!payload || typeof payload.sub !== "string") {
       set.status = 401;

@@ -5,6 +5,7 @@ import { eq, and, isNull, lte, gte } from "drizzle-orm";
 
 const amountPattern = "^\\d+(\\.\\d{1,2})?$";
 const datePattern = "^\\d{4}-\\d{2}-\\d{2}$";
+const httpUrlPattern = "^https?://.+";
 
 export const subscriptionRoutes = new Elysia({
   prefix: "/subscriptions",
@@ -147,7 +148,15 @@ export const subscriptionRoutes = new Elysia({
         ]),
         nextRenewalDate: t.String({ pattern: datePattern }),
         startDate: t.String({ pattern: datePattern }),
-        url: t.Optional(t.Nullable(t.String({ format: "uri" }))),
+        url: t.Optional(
+          t.Nullable(
+            t.String({
+              pattern: httpUrlPattern,
+              maxLength: 500,
+              error: "URL must start with http:// or https://",
+            })
+          )
+        ),
         autoRenew: t.Optional(t.Boolean()),
       }),
     }
@@ -224,7 +233,15 @@ export const subscriptionRoutes = new Elysia({
         ),
         nextRenewalDate: t.Optional(t.String({ pattern: datePattern })),
         startDate: t.Optional(t.String({ pattern: datePattern })),
-        url: t.Optional(t.Nullable(t.String({ format: "uri" }))),
+        url: t.Optional(
+          t.Nullable(
+            t.String({
+              pattern: httpUrlPattern,
+              maxLength: 500,
+              error: "URL must start with http:// or https://",
+            })
+          )
+        ),
         autoRenew: t.Optional(t.Boolean()),
       }),
     }
