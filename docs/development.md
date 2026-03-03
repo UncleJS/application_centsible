@@ -1,5 +1,10 @@
 # Development Guide
 
+[![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey?style=flat)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
+[![Bun](https://img.shields.io/badge/Bun-%3E%3D1.3-f9f1e1?style=flat&logo=bun)](https://bun.sh)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?style=flat&logo=typescript)](https://www.typescriptlang.org)
+[![MariaDB](https://img.shields.io/badge/MariaDB-11-003545?style=flat&logo=mariadb)](https://mariadb.org)
+
 This document covers everything you need to get Centsible running locally, understand the codebase, and contribute changes.
 
 ## Table of Contents
@@ -39,6 +44,8 @@ This document covers everything you need to get Centsible running locally, under
 >   -p 3306:3306 \
 >   docker.io/library/mariadb:11.7
 > ```
+
+[↑ Go to TOC](#table-of-contents)
 
 ---
 
@@ -128,6 +135,8 @@ application_centsible/
 
 Bun workspaces link the packages so that `import { User } from "@centsible/shared"` works in both `api` and `web` without a build step.
 
+[↑ Go to TOC](#table-of-contents)
+
 ---
 
 ## Environment Variables
@@ -152,6 +161,8 @@ cp .env.example .env
 | `NEXT_PUBLIC_API_URL` | `http://localhost:4000` | API base URL baked into the Next.js bundle at build time |
 
 > **Security note:** In production `config.ts` throws a hard error if `JWT_SECRET`, `JWT_REFRESH_SECRET`, `DB_HOST`, `DB_USER`, `DB_PASSWORD`, or `DB_NAME` are missing. Dev defaults are intentionally weak and print a `⚠` console warning.
+
+[↑ Go to TOC](#table-of-contents)
 
 ---
 
@@ -187,6 +198,8 @@ bun run --filter @centsible/api db:seed
 bun run db:studio    # opens browser UI at https://local.drizzle.studio
 ```
 
+[↑ Go to TOC](#table-of-contents)
+
 ---
 
 ## Available Scripts
@@ -212,6 +225,8 @@ Package-specific scripts (run with `bun run --filter @centsible/api <script>`):
 | `db:seed` | api | Populate database with sample data |
 | `start` | api | Run the production bundle (`dist/index.js`) |
 | `start` | web | Run the Next.js production build |
+
+[↑ Go to TOC](#table-of-contents)
 
 ---
 
@@ -265,6 +280,8 @@ To restore an archived record, set `archivedAt = NULL` directly in Drizzle Studi
 | Dates | `DATE` as `YYYY-MM-DD` string | `"2026-03-01"` |
 | Timestamps | `DATETIME` as JS `Date` | `new Date()` |
 
+[↑ Go to TOC](#table-of-contents)
+
 ---
 
 ## Architecture Overview
@@ -310,6 +327,8 @@ Browser
 
 > **Note:** The rate limiter is in-memory and resets on process restart. It is not shared between multiple API instances.
 
+[↑ Go to TOC](#table-of-contents)
+
 ---
 
 ## Auth & Session Model
@@ -346,6 +365,8 @@ All mutating requests (`POST`, `PATCH`, `DELETE`) that arrive **without** an `Au
 Bearer-token authenticated requests (e.g. mobile apps, server-to-server) skip the CSRF check entirely.
 
 `GET` and `HEAD` requests never require a CSRF token.
+
+[↑ Go to TOC](#table-of-contents)
 
 ---
 
@@ -406,6 +427,8 @@ app.use(myFeatureRoutes)
 - `201 Created` for resource creation; `200 OK` for updates/deletes.
 - Swagger tags are defined in `index.ts` — add your feature tag there.
 
+[↑ Go to TOC](#table-of-contents)
+
 ---
 
 ## Adding a Frontend Page
@@ -442,6 +465,8 @@ try {
   toast.error(err instanceof Error ? err.message : "Failed to save");
 }
 ```
+
+[↑ Go to TOC](#table-of-contents)
 
 ---
 
@@ -483,6 +508,8 @@ try {
 - **If `ForecastItem.type` gains a new value** → update it in `types.ts` **AND** in the frontend's local `ForecastItem` type inside `packages/web/src/app/forecast/page.tsx` (they are separate).
 - **Never import directly from `packages/shared/src/...`** — always import from `@centsible/shared` (the workspace alias).
 
+[↑ Go to TOC](#table-of-contents)
+
 ---
 
 ## Shared Constants
@@ -517,6 +544,8 @@ Maps each `BillingCycle` value to its equivalent number of calendar months. Used
 
 `https://api.frankfurter.app` — the upstream exchange rate service.
 
+[↑ Go to TOC](#table-of-contents)
+
 ---
 
 ## Validation Schemas
@@ -547,6 +576,8 @@ Maps each `BillingCycle` value to its equivalent number of calendar months. Used
 | `reportQuerySchema` | `GET /reports/summary`, `GET /reports/export` query |
 
 All amount fields validate against `/^\d+(\.\d{1,2})?$/`. All date fields validate against `/^\d{4}-\d{2}-\d{2}$/`. Currency codes are 3-character strings.
+
+[↑ Go to TOC](#table-of-contents)
 
 ---
 
@@ -590,3 +621,9 @@ The project uses the default Bun/TypeScript code style. No formatter is enforced
 - Always validate `userId` ownership before reading or mutating any resource.
 - Subscription `url` fields are accepted only if they start with `http://` or `https://` (validated by `isSafeUrl` in `lib/api.ts`).
 - CSV export sanitises cells beginning with `=`, `+`, `-`, `@`, tab, or carriage return (formula injection prevention).
+
+[↑ Go to TOC](#table-of-contents)
+
+---
+
+&copy; 2026 UncleJs — Licensed under [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)

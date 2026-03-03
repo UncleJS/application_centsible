@@ -1,6 +1,23 @@
 # Centsible
 
+[![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey?style=flat)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
+[![Bun](https://img.shields.io/badge/Bun-%3E%3D1.3-f9f1e1?style=flat&logo=bun)](https://bun.sh)
+[![Next.js](https://img.shields.io/badge/Next.js-16-black?style=flat&logo=next.js)](https://nextjs.org)
+[![MariaDB](https://img.shields.io/badge/MariaDB-11-003545?style=flat&logo=mariadb)](https://mariadb.org)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?style=flat&logo=typescript)](https://www.typescriptlang.org)
+
 A self-hosted personal finance tracker. Track income and expenses, set monthly budgets, monitor recurring subscriptions, manage savings goals, and forecast future spending — all in one place.
+
+## Table of Contents
+
+- [Features](#features)
+- [Tech Stack](#tech-stack)
+- [Quick Start (Local Development)](#quick-start-local-development)
+- [Documentation](#documentation)
+- [Project Layout](#project-layout)
+- [Default Categories](#default-categories)
+
+---
 
 ## Features
 
@@ -13,6 +30,10 @@ A self-hosted personal finance tracker. Track income and expenses, set monthly b
 - **CSV export** — Download any month's transactions as a spreadsheet-safe CSV
 - **Secure sessions** — HttpOnly cookie-based auth (JWT access + refresh tokens) with CSRF protection
 
+[↑ Go to TOC](#table-of-contents)
+
+---
+
 ## Tech Stack
 
 | Layer | Technology |
@@ -22,6 +43,10 @@ A self-hosted personal finance tracker. Track income and expenses, set monthly b
 | Database | MariaDB 11 + Drizzle ORM |
 | Shared | TypeScript types + Zod validation (`@centsible/shared`) |
 | Deployment | Rootless Podman + systemd Quadlet |
+
+[↑ Go to TOC](#table-of-contents)
+
+---
 
 ## Quick Start (Local Development)
 
@@ -46,6 +71,10 @@ bun run dev
 - API: http://localhost:4000
 - Swagger UI: http://localhost:4000/docs (dev only)
 
+[↑ Go to TOC](#table-of-contents)
+
+---
+
 ## Documentation
 
 | Document | Description |
@@ -54,6 +83,10 @@ bun run dev
 | [docs/development.md](docs/development.md) | Local setup, monorepo layout, environment variables, database workflow, code conventions |
 | [docs/deployment.md](docs/deployment.md) | Production deployment with Podman + systemd Quadlet, secrets, upgrades, rollback |
 | [docs/api.md](docs/api.md) | Full API reference — every endpoint, query params, request/response shapes, auth model |
+
+[↑ Go to TOC](#table-of-contents)
+
+---
 
 ## Project Layout
 
@@ -78,6 +111,16 @@ application_centsible/
 └── bun.lock
 ```
 
+[↑ Go to TOC](#table-of-contents)
+
+---
+
 ## Default Categories
 
 New accounts are seeded with 14 expense categories (Food & Groceries, Transport, Housing, …) and 5 income categories (Salary, Freelance, Investments, …). All categories are user-owned and fully editable.
+
+[↑ Go to TOC](#table-of-contents)
+
+---
+
+&copy; 2026 UncleJs — Licensed under [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)

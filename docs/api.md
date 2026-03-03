@@ -1,5 +1,10 @@
 # API Reference
 
+[![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey?style=flat)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
+[![OpenAPI](https://img.shields.io/badge/OpenAPI-3.0-6ba539?style=flat&logo=openapiinitiative)](https://www.openapis.org)
+[![Swagger UI](https://img.shields.io/badge/Swagger%20UI-%2Fdocs-85ea2d?style=flat&logo=swagger)](http://localhost:4000/docs)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?style=flat&logo=typescript)](https://www.typescriptlang.org)
+
 Base URL (development): `http://localhost:4000`  
 Base URL (production): `http://localhost:10301`
 
@@ -63,6 +68,8 @@ Bearer-authenticated requests skip the CSRF check entirely.
 
 When any request returns `401`, send a `POST /auth/refresh` (no body required for cookie clients). On success the API rotates the session cookies and returns `200`. The old refresh token is revoked (its Argon2 hash is marked as revoked in the database) and pruned on the next login.
 
+[↑ Go to TOC](#table-of-contents)
+
 ---
 
 ## Global Conventions
@@ -120,6 +127,8 @@ When any request returns `401`, send a `POST /auth/refresh` (no body required fo
 | `502` | Upstream service unavailable (exchange rate API) |
 | `500` | Internal server error |
 
+[↑ Go to TOC](#table-of-contents)
+
 ---
 
 ## Rate Limiting
@@ -134,6 +143,8 @@ All requests are rate-limited by IP address using an in-memory sliding window:
 Exceeded limits return `429 Too Many Requests`.
 
 The limiter reads `X-Forwarded-For` (first value) then `X-Real-IP` to identify the client behind a reverse proxy.
+
+[↑ Go to TOC](#table-of-contents)
 
 ---
 
@@ -150,6 +161,8 @@ Public. No authentication required.
   "timestamp": "2026-03-15T10:30:00.000Z"
 }
 ```
+
+[↑ Go to TOC](#table-of-contents)
 
 ---
 
@@ -335,6 +348,8 @@ Cookie clients must include `X-CSRF-Token`.
 |---|---|
 | `400` | Validation failure (name too long, unsupported currency code) |
 
+[↑ Go to TOC](#table-of-contents)
+
 ---
 
 ## Categories
@@ -461,6 +476,8 @@ Restore an archived category (sets `archivedAt = null`).
 | `400` | Category is not archived |
 | `404` | Category not found |
 
+[↑ Go to TOC](#table-of-contents)
+
 ---
 
 ## Transactions
@@ -584,6 +601,8 @@ Archive (soft-delete) a transaction.
 { "data": { "message": "Transaction archived" } }
 ```
 
+[↑ Go to TOC](#table-of-contents)
+
 ---
 
 ## Budgets
@@ -682,6 +701,8 @@ Archive a budget.
 ```json
 { "data": { "message": "Budget archived" } }
 ```
+
+[↑ Go to TOC](#table-of-contents)
 
 ---
 
@@ -824,6 +845,8 @@ Archive a savings goal.
 { "data": { "message": "Savings goal archived" } }
 ```
 
+[↑ Go to TOC](#table-of-contents)
+
 ---
 
 ## Subscriptions
@@ -941,6 +964,8 @@ Archive a subscription.
 { "data": { "message": "Subscription archived" } }
 ```
 
+[↑ Go to TOC](#table-of-contents)
+
 ---
 
 ## Recurring Income
@@ -1054,6 +1079,8 @@ Archive (soft-delete) a recurring income source. The record is preserved in the 
 | Status | Condition |
 |---|---|
 | `404` | Recurring income source not found or belongs to another user |
+
+[↑ Go to TOC](#table-of-contents)
 
 ---
 
@@ -1288,6 +1315,8 @@ CSV cells starting with `=`, `+`, `-`, `@`, tab, or carriage return are prefixed
 
 **Filename:** `centsible-YYYY-MM.csv`
 
+[↑ Go to TOC](#table-of-contents)
+
 ---
 
 ## Exchange Rates
@@ -1386,3 +1415,9 @@ List all supported currency codes.
   ]
 }
 ```
+
+[↑ Go to TOC](#table-of-contents)
+
+---
+
+&copy; 2026 UncleJs — Licensed under [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)

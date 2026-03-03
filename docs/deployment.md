@@ -1,5 +1,10 @@
 # Deployment Guide
 
+[![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey?style=flat)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
+[![Podman](https://img.shields.io/badge/Podman-%3E%3D4.x-892ca0?style=flat&logo=podman)](https://podman.io)
+[![systemd](https://img.shields.io/badge/systemd-Quadlet-0067b8?style=flat)](https://www.freedesktop.org/wiki/Software/systemd/)
+[![MariaDB](https://img.shields.io/badge/MariaDB-11-003545?style=flat&logo=mariadb)](https://mariadb.org)
+
 Production deployment uses **rootless Podman** with **systemd Quadlet** units. All four services (pod, MariaDB, API, web) are managed as user-level systemd services — no root access required.
 
 ## Table of Contents
@@ -46,6 +51,8 @@ All containers share `localhost` within the pod (slirp4netns networking). The AP
 | `10300` | Web frontend |
 | `10301` | API backend |
 
+[↑ Go to TOC](#table-of-contents)
+
 ---
 
 ## Prerequisites
@@ -62,6 +69,8 @@ Enable lingering so the user session starts at boot without an interactive login
 ```bash
 sudo loginctl enable-linger $USER
 ```
+
+[↑ Go to TOC](#table-of-contents)
 
 ---
 
@@ -83,6 +92,8 @@ You can run each step independently:
 ./infra/deploy.sh install    # Install Quadlet files + create .env if missing
 ./infra/deploy.sh start      # Start all services
 ```
+
+[↑ Go to TOC](#table-of-contents)
 
 ---
 
@@ -125,6 +136,8 @@ podman build \
 
 > **`NEXT_PUBLIC_API_URL` is baked into the Next.js bundle at build time.** If you change the API port or host, you must rebuild the web image.
 
+[↑ Go to TOC](#table-of-contents)
+
 ---
 
 ## Installing Quadlet Units
@@ -146,6 +159,8 @@ This copies the four files from `infra/quadlet/` to `~/.config/containers/system
 Then runs `systemctl --user daemon-reload` so systemd discovers the new units.
 
 > Quadlet reads these `.pod` and `.container` files and auto-generates the corresponding `.service` units — you never write `.service` files by hand.
+
+[↑ Go to TOC](#table-of-contents)
 
 ---
 
@@ -189,6 +204,8 @@ openssl rand -base64 48   # run twice for two different secrets
 
 > The file is loaded by both the `centsible-api.container` and `centsible-mariadb.container` units via `EnvironmentFile=%h/.config/containers/systemd/.env.centsible`. The `%h` expands to the home directory of the running user.
 
+[↑ Go to TOC](#table-of-contents)
+
 ---
 
 ## Starting & Stopping Services
@@ -223,6 +240,8 @@ The API container's entrypoint (`api-entrypoint.sh`) additionally polls `DB_HOST
 systemctl --user enable centsible-pod.service
 ```
 
+[↑ Go to TOC](#table-of-contents)
+
 ---
 
 ## Verifying the Deployment
@@ -243,6 +262,8 @@ curl -I http://localhost:10300
 # Expected: HTTP/1.1 200 OK
 ```
 
+[↑ Go to TOC](#table-of-contents)
+
 ---
 
 ## Logs
@@ -259,6 +280,8 @@ journalctl --user -u centsible-mariadb.service -f
 # Last 100 lines
 journalctl --user -u centsible-api.service -n 100
 ```
+
+[↑ Go to TOC](#table-of-contents)
 
 ---
 
@@ -286,6 +309,8 @@ The API entrypoint automatically runs `bun run src/db/migrate.ts` on every start
 
 The current setup restarts the entire pod. For a personal/small-team deployment this is acceptable (seconds of downtime). For a zero-downtime upgrade, you would need a load-balanced setup that is outside the current scope.
 
+[↑ Go to TOC](#table-of-contents)
+
 ---
 
 ## Rollback
@@ -311,6 +336,8 @@ systemctl --user restart centsible-pod.service
 ```
 
 > **Database rollbacks** are not automated. Migrations are append-only and designed to be backward-compatible. If a migration must be reversed, write a new corrective migration rather than running down scripts.
+
+[↑ Go to TOC](#table-of-contents)
 
 ---
 
@@ -364,6 +391,8 @@ podman volume inspect centsible-db
 podman volume ls
 ```
 
+[↑ Go to TOC](#table-of-contents)
+
 ---
 
 ## Networking
@@ -389,6 +418,8 @@ https://api.centsible.example.com  →  http://localhost:10301  (api, if exposed
 ```
 
 Remember to update `WEB_URL` in `.env.centsible` and `NEXT_PUBLIC_API_URL` build-arg to match the public URLs, then rebuild the web image.
+
+[↑ Go to TOC](#table-of-contents)
 
 ---
 
@@ -425,3 +456,9 @@ The API rate-limiter uses in-memory state keyed by IP. Limits are:
 - All other endpoints: 100 requests / minute / IP
 
 If you are behind a reverse proxy, ensure it sets `X-Forwarded-For` or `X-Real-IP` so the limiter sees the real client IP instead of `127.0.0.1`.
+
+[↑ Go to TOC](#table-of-contents)
+
+---
+
+&copy; 2026 UncleJs — Licensed under [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)

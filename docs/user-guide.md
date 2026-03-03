@@ -1,5 +1,9 @@
 # Centsible — User Guide
 
+[![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey?style=flat)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
+[![Self-Hosted](https://img.shields.io/badge/Self--Hosted-yes-4caf50?style=flat)](https://github.com)
+[![Multi-Currency](https://img.shields.io/badge/Multi--Currency-31%20currencies-1976d2?style=flat)](https://www.frankfurter.app/)
+
 Centsible is a self-hosted personal finance tracker. This guide walks you through every feature of the application: what it does, how to use it, and the exact rules that govern how every number is calculated.
 
 ## Table of Contents
@@ -98,6 +102,8 @@ Centsible uses HttpOnly cookie-based authentication. Two tokens are issued on lo
 
 When the access token expires, the app silently requests a new one in the background. You will only be asked to log in again if the refresh token also expires (after 7 days of inactivity) or if you log out explicitly.
 
+[↑ Go to TOC](#table-of-contents)
+
 ---
 
 ## Dashboard
@@ -176,6 +182,8 @@ Shows subscriptions due to renew within the **next 30 days**, ordered by renewal
 
 Shows all active savings goals with progress bars and a "£X /mo needed" figure. See [Monthly Saving Needed](#monthly-saving-needed) for how this is calculated.
 
+[↑ Go to TOC](#table-of-contents)
+
 ---
 
 ## Transactions
@@ -212,6 +220,8 @@ The transactions list supports:
 - **Search** — case-insensitive match on the description field
 
 Results are paginated (20 per page by default, up to 100).
+
+[↑ Go to TOC](#table-of-contents)
 
 ---
 
@@ -358,6 +368,8 @@ Progress bars on budget cards follow these thresholds:
 | Amber | Spent 75–89% of budget |
 | Red | Spent ≥ 90% of budget |
 
+[↑ Go to TOC](#table-of-contents)
+
 ---
 
 ## Recurring Income
@@ -397,6 +409,8 @@ This normalised figure appears in:
 - The **Projected Balance** on the Budgets page (as part of the income side)
 - The **Total Projected Income** summary card on the Forecast page
 
+[↑ Go to TOC](#table-of-contents)
+
 ---
 
 ## Subscriptions
@@ -434,6 +448,8 @@ Click **Add Subscription** and fill in:
 The **dashboard** shows subscriptions renewing in the next 30 days. The **Subscriptions** page lists all upcoming renewals.
 
 > **Rule:** Only subscriptions with **Auto-renew enabled** appear in the upcoming list and in the forecast. A subscription with auto-renew turned off is treated as a one-off historical record and excluded from all forward projections.
+
+[↑ Go to TOC](#table-of-contents)
 
 ---
 
@@ -507,6 +523,8 @@ The three summary tiles at the top of the page show:
 - **Active Goals** — count of non-archived goals
 - **Nearest Deadline** — the goal with the soonest upcoming (non-overdue) target date
 
+[↑ Go to TOC](#table-of-contents)
+
 ---
 
 ## Categories
@@ -539,6 +557,8 @@ Go to **Categories → Expense** to view, create, edit, and archive expense cate
 
 Go to **Categories → Income** — identical functionality to expense categories, filtered to income type.
 
+[↑ Go to TOC](#table-of-contents)
+
 ---
 
 ## Reports
@@ -567,6 +587,8 @@ Click **Export CSV** to download all transactions for the selected month as a `.
 Columns: `Date, Type, Category, Description, Amount, Currency`
 
 > **Security note:** Cells starting with `=`, `+`, `-`, `@`, a tab, or a carriage return are prefixed with a single quote to prevent formula injection when opened in a spreadsheet application.
+
+[↑ Go to TOC](#table-of-contents)
 
 ---
 
@@ -717,6 +739,8 @@ Where:
 
 A goal is excluded from a forecast month if the forecast month's start date is after the goal's target date. Goals where `currentAmount >= targetAmount` are always excluded.
 
+[↑ Go to TOC](#table-of-contents)
+
 ---
 
 ## Settings
@@ -734,6 +758,8 @@ Select a currency from the **Default Currency** dropdown and click **Save Change
 > **Rule:** Changing your default currency does **not** convert any stored amounts — it only changes the currency symbol and code used when displaying totals. Every transaction, budget, subscription, and goal retains its own individual currency.
 
 The **Save Changes** button is only enabled when you have made a change (the form tracks a dirty state).
+
+[↑ Go to TOC](#table-of-contents)
 
 ---
 
@@ -758,6 +784,8 @@ AUD, BGN, BRL, CAD, CHF, CNY, CZK, DKK, EUR, GBP, HKD, HRK, HUF, IDR, INR, ISK, 
 
 > **Important:** Dashboard summary figures (Total Income, Total Expenses, Net Savings, Budget Usage) are summed using raw amounts regardless of currency. If you use multiple currencies, interpret these totals accordingly.
 
+[↑ Go to TOC](#table-of-contents)
+
 ---
 
 ## Data and Privacy
@@ -773,3 +801,9 @@ This applies to:
 - Recurring income sources
 
 **Your data is yours.** Centsible is self-hosted — all data lives in your own MariaDB database. There is no cloud sync, telemetry, or third-party data sharing. The only external service contacted is the [Frankfurter API](https://www.frankfurter.app/) for exchange rate lookups.
+
+[↑ Go to TOC](#table-of-contents)
+
+---
+
+&copy; 2026 UncleJs — Licensed under [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)
