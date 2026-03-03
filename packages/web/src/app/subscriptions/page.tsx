@@ -137,6 +137,7 @@ function SummarySkeleton() {
 interface SubscriptionCardProps {
   subscription: Subscription;
   userCurrency: string;
+  exchangeRates: Record<string, number>;
   onEdit: (sub: Subscription) => void;
   onDelete: (sub: Subscription) => void;
 }
@@ -144,6 +145,7 @@ interface SubscriptionCardProps {
 function SubscriptionCard({
   subscription,
   userCurrency,
+  exchangeRates,
   onEdit,
   onDelete,
 }: SubscriptionCardProps) {
@@ -151,6 +153,13 @@ function SubscriptionCard({
   const renewalColor = getRenewalColor(days);
   const badgeClass = getRenewalBadgeVariant(days);
   const cycleLabel = BILLING_CYCLE_LABELS[subscription.billingCycle] ?? subscription.billingCycle;
+
+  // Local currency equivalent shown in brackets when subscription is in a foreign currency
+  const isForeignCurrency = subscription.currency !== userCurrency;
+  const foreignRate = isForeignCurrency ? exchangeRates[subscription.currency] : undefined;
+  const localAmount = foreignRate !== undefined
+    ? parseFloat(subscription.amount) * foreignRate
+    : null;
 
   return (
     <Card className="bg-zinc-900 border-zinc-800 flex flex-col">
@@ -194,9 +203,16 @@ function SubscriptionCard({
 
         {/* Amount + cycle */}
         <div className="flex items-center justify-between gap-2">
-          <span className="text-xl font-bold font-mono text-zinc-100">
-            {formatCurrency(subscription.amount, subscription.currency)}
-          </span>
+          <div className="flex flex-col gap-0.5 min-w-0">
+            <span className="text-xl font-bold font-mono text-zinc-100">
+              {formatCurrency(subscription.amount, subscription.currency)}
+              {localAmount !== null && (
+                <span className="text-sm font-normal text-zinc-400 ml-1.5">
+                  ({formatCurrency(localAmount, userCurrency)})
+                </span>
+              )}
+            </span>
+          </div>
           <Badge
             variant="outline"
             className="text-xs border-zinc-700 text-zinc-400 bg-zinc-800/50 shrink-0"
@@ -204,13 +220,6 @@ function SubscriptionCard({
             {cycleLabel}
           </Badge>
         </div>
-
-        {/* Currency note if differs */}
-        {subscription.currency !== userCurrency && (
-          <p className="text-xs text-zinc-600 font-mono -mt-1">
-            billed in {subscription.currency}
-          </p>
-        )}
 
         <div className="flex flex-col gap-1.5 text-xs text-zinc-400">
           {/* Next renewal */}
@@ -735,6 +744,12 @@ export default function SubscriptionsPage() {
 
   const activeCount = subscriptions.length;
 
+  // Rates are considered pending if the store hasn't loaded yet and there are
+  // foreign-currency subscriptions that need conversion.
+  const ratesPending =
+    Object.keys(exchangeRates).length === 0 &&
+    subscriptions.some((s) => s.currency !== userCurrency);
+
   const nextRenewal = useMemo(
     () =>
       subscriptions.length > 0
@@ -780,12 +795,21 @@ export default function SubscriptionsPage() {
               <p className="text-xs uppercase tracking-widest font-medium text-zinc-500">
                 Total Monthly Cost
               </p>
-              <p className="text-2xl font-bold font-mono text-zinc-100">
-                {formatCurrency(totalMonthlyCost, userCurrency)}
-              </p>
-              <p className="text-xs text-zinc-600">
-                normalized across all billing cycles
-              </p>
+              {ratesPending ? (
+                <>
+                  <p className="text-2xl font-bold font-mono text-zinc-500">—</p>
+                  <p className="text-xs text-zinc-600">loading exchange rates…</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-2xl font-bold font-mono text-zinc-100">
+                    {formatCurrency(totalMonthlyCost, userCurrency)}
+                  </p>
+                  <p className="text-xs text-zinc-600">
+                    normalized across all billing cycles
+                  </p>
+                </>
+              )}
             </CardContent>
           </Card>
 
@@ -870,6 +894,7 @@ export default function SubscriptionsPage() {
                 key={sub.id}
                 subscription={sub}
                 userCurrency={userCurrency}
+                exchangeRates={exchangeRates}
                 onEdit={handleEdit}
                 onDelete={handleDeleteRequest}
               />

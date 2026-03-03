@@ -550,6 +550,12 @@ export default function BudgetsPage() {
   // Grand total monthly commitment: budgets + subscriptions + savings
   const totalMonthlyCommitted = totalBudgeted + totalMonthlySubscriptions + totalMonthlySavings;
 
+  // Rates are considered pending if the store hasn't loaded yet and there are
+  // foreign-currency subscriptions whose conversion would otherwise be 1:1.
+  const ratesPending =
+    Object.keys(exchangeRates).length === 0 &&
+    subscriptions.some((s) => s.currency !== currency);
+
   const budgetedCategoryIds = new Set(budgets.map((b) => b.categoryId));
 
   return (
@@ -658,12 +664,21 @@ export default function BudgetsPage() {
                   Monthly Subscriptions
                 </p>
               </div>
-              <p className="text-2xl font-bold font-mono text-zinc-100">
-                {formatCurrency(totalMonthlySubscriptions, currency)}
-              </p>
-              <p className="text-xs text-zinc-600">
-                normalised across all billing cycles
-              </p>
+              {ratesPending ? (
+                <>
+                  <p className="text-2xl font-bold font-mono text-zinc-500">—</p>
+                  <p className="text-xs text-zinc-600">loading exchange rates…</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-2xl font-bold font-mono text-zinc-100">
+                    {formatCurrency(totalMonthlySubscriptions, currency)}
+                  </p>
+                  <p className="text-xs text-zinc-600">
+                    normalised across all billing cycles
+                  </p>
+                </>
+              )}
             </CardContent>
           </Card>
 
@@ -692,12 +707,21 @@ export default function BudgetsPage() {
                   Monthly Committed
                 </p>
               </div>
-              <p className="text-2xl font-bold font-mono text-purple-300">
-                {formatCurrency(totalMonthlyCommitted, currency)}
-              </p>
-              <p className="text-xs text-zinc-600">
-                budgets + subscriptions + savings
-              </p>
+              {ratesPending ? (
+                <>
+                  <p className="text-2xl font-bold font-mono text-zinc-500">—</p>
+                  <p className="text-xs text-zinc-600">loading exchange rates…</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-2xl font-bold font-mono text-purple-300">
+                    {formatCurrency(totalMonthlyCommitted, currency)}
+                  </p>
+                  <p className="text-xs text-zinc-600">
+                    budgets + subscriptions + savings
+                  </p>
+                </>
+              )}
             </CardContent>
           </Card>
         </div>
