@@ -63,6 +63,7 @@ interface Category {
 interface Subscription {
   id: number;
   amount: string;
+  currency: string;
   billingCycle: string;
 }
 
@@ -391,6 +392,7 @@ export default function BudgetsPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>([]);
+  const [exchangeRates, setExchangeRates] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
@@ -440,6 +442,15 @@ export default function BudgetsPage() {
     }
   }, []);
 
+  const fetchExchangeRates = useCallback(async () => {
+    try {
+      const res = await api.getLatestRates(currency);
+      setExchangeRates(res.data?.rates ?? {});
+    } catch {
+      // non-critical — falls back to 1:1 for all currencies
+    }
+  }, [currency]);
+
   useEffect(() => {
     fetchBudgets();
   }, [fetchBudgets]);
@@ -448,7 +459,8 @@ export default function BudgetsPage() {
     fetchCategories();
     fetchSubscriptions();
     fetchSavingsGoals();
-  }, [fetchCategories, fetchSubscriptions, fetchSavingsGoals]);
+    fetchExchangeRates();
+  }, [fetchCategories, fetchSubscriptions, fetchSavingsGoals, fetchExchangeRates]);
 
   function prevMonth() {
     if (month === 1) {
@@ -503,16 +515,17 @@ export default function BudgetsPage() {
   );
   const totalRemaining = totalBudgeted - totalSpent;
 
-  // Total monthly subscription cost — each subscription normalised to a
-  // monthly equivalent using the same BILLING_CYCLE_MONTHS divisors as the
-  // Subscriptions page (amount / cycleInMonths = monthly equivalent).
+  // Total monthly subscription cost — each subscription converted to userCurrency
+  // using today's exchange rates, then normalised to a monthly equivalent.
+  // Falls back to 1:1 when a rate is unavailable (same currency or service down).
   const totalMonthlySubscriptions = useMemo(
     () =>
       subscriptions.reduce((sum, sub) => {
         const cycleMonths = BILLING_CYCLE_MONTHS[sub.billingCycle] ?? 1;
-        return sum + parseFloat(sub.amount) / cycleMonths;
+        const rate = sub.currency === currency ? 1 : (exchangeRates[sub.currency] ?? 1);
+        return sum + (parseFloat(sub.amount) / cycleMonths) * rate;
       }, 0),
-    [subscriptions]
+    [subscriptions, exchangeRates, currency]
   );
 
   // Total monthly savings needed — uses the same whole-calendar-month formula

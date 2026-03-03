@@ -649,6 +649,7 @@ export default function SubscriptionsPage() {
 
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [exchangeRates, setExchangeRates] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
 
@@ -679,13 +680,23 @@ export default function SubscriptionsPage() {
     }
   }, []);
 
+  const fetchExchangeRates = useCallback(async () => {
+    try {
+      const res = await api.getLatestRates(userCurrency);
+      setExchangeRates(res.data?.rates ?? {});
+    } catch {
+      // non-critical — falls back to 1:1 for all currencies
+    }
+  }, [userCurrency]);
+
   useEffect(() => {
     fetchSubscriptions();
   }, [fetchSubscriptions]);
 
   useEffect(() => {
     fetchCategories();
-  }, [fetchCategories]);
+    fetchExchangeRates();
+  }, [fetchCategories, fetchExchangeRates]);
 
   function handleCreate() {
     setEditingSub(null);
@@ -718,9 +729,17 @@ export default function SubscriptionsPage() {
     }
   }
 
+  // Convert each subscription to userCurrency before normalising to monthly.
+  // Rate from getLatestRates(userCurrency) is "units of userCurrency per 1 unit
+  // of sub.currency". Falls back to 1:1 when the rate is unavailable (same
+  // currency, or exchange rate service down).
   const totalMonthlyCost = useMemo(
-    () => subscriptions.reduce((sum, sub) => sum + toMonthly(sub.amount, sub.billingCycle), 0),
-    [subscriptions]
+    () =>
+      subscriptions.reduce((sum, sub) => {
+        const rate = sub.currency === userCurrency ? 1 : (exchangeRates[sub.currency] ?? 1);
+        return sum + toMonthly(sub.amount, sub.billingCycle) * rate;
+      }, 0),
+    [subscriptions, exchangeRates, userCurrency]
   );
 
   const activeCount = subscriptions.length;
