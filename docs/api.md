@@ -17,6 +17,7 @@ Interactive Swagger UI is available at `/docs` in any non-production environment
 - [Budgets](#budgets)
 - [Savings Goals](#savings-goals)
 - [Subscriptions](#subscriptions)
+- [Recurring Income](#recurring-income)
 - [Reports](#reports)
 - [Exchange Rates](#exchange-rates)
 
@@ -60,7 +61,7 @@ Bearer-authenticated requests skip the CSRF check entirely.
 
 ### Token Refresh
 
-When any request returns `401`, send a `POST /auth/refresh` (no body required for cookie clients). On success the API rotates the session cookies and returns `200`. The old refresh token is revoked and pruned from the database.
+When any request returns `401`, send a `POST /auth/refresh` (no body required for cookie clients). On success the API rotates the session cookies and returns `200`. The old refresh token is revoked (its Argon2 hash is marked as revoked in the database) and pruned on the next login.
 
 ---
 
@@ -240,7 +241,7 @@ Sets session cookies. Also prunes expired/revoked refresh tokens for the user.
 
 ### `POST /auth/refresh`
 
-Rotate the session. Validates the refresh token, revokes it, and issues a new token pair.
+Rotate the session. Validates the refresh token against its stored Argon2 hash, revokes it, and issues a new token pair.
 
 Cookie clients send an empty body. Bearer clients may supply the refresh token in the body.
 
@@ -405,7 +406,7 @@ Create a new category. Rejects duplicates with the same `name` + `type` combinat
 
 | Status | Condition |
 |---|---|
-| `409` | A `income` category named "Side Projects" already exists |
+| `409` | An `income` category named "Side Projects" already exists |
 
 ---
 
@@ -437,7 +438,7 @@ Update a category's name, icon, or color. The `type` field cannot be changed aft
 
 Archive (soft-delete) a category. Transactions linked to this category are unaffected.
 
-> Cannot archive a category that has active transactions if the DB `onDelete: "restrict"` constraint would be violated. Archiving does not cascade — it only sets `archivedAt` on the category row.
+> Archiving only sets `archivedAt` on the category row — it does not cascade to linked transactions, budgets, or subscriptions.
 
 **Response `200`**
 
@@ -589,11 +590,13 @@ Archive (soft-delete) a transaction.
 
 All endpoints require authentication.
 
+Budgets can be set for any category type (`income` or `expense`). Expense budgets are used for spending tracking and expense projections in the forecast; income budgets feed into projected income in the forecast.
+
 ---
 
 ### `GET /budgets`
 
-List budgets for a given month. Each row includes `spent` — the sum of all non-archived expense transactions for that category in the period.
+List budgets for a given month. Each expense-category row includes `spent` — the sum of all non-archived expense transactions for that category in the period.
 
 **Query parameters** *(all optional, default to current year/month)*
 
@@ -940,6 +943,120 @@ Archive a subscription.
 
 ---
 
+## Recurring Income
+
+All endpoints require authentication.
+
+Recurring income sources represent predictable income streams (e.g. salary, pension, freelance retainer). Unlike subscriptions, they have no renewal dates — they recur on a billing cycle and are projected forward in the forecast.
+
+---
+
+### `GET /recurring-income`
+
+List all active (non-archived) recurring income sources for the user, ordered by name. Includes joined category name and icon.
+
+**Response `200`**
+
+```json
+{
+  "data": [
+    {
+      "id": 3,
+      "userId": 1,
+      "categoryId": 1,
+      "categoryName": "Salary",
+      "categoryIcon": "💼",
+      "name": "Monthly Salary",
+      "description": null,
+      "amount": "3500.00",
+      "currency": "GBP",
+      "billingCycle": "monthly",
+      "autoRenew": true,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z",
+      "archivedAt": null
+    }
+  ]
+}
+```
+
+---
+
+### `POST /recurring-income`
+
+Create a new recurring income source.
+
+**Request body**
+
+```jsonc
+{
+  "name": "Monthly Salary",             // required, 1–100 characters
+  "amount": "3500.00",                  // required, decimal string (≥0, max 2 dp)
+  "currency": "GBP",                    // required, ISO 4217 3-char code
+  "billingCycle": "monthly",            // required: "weekly" | "fortnightly" | "monthly" | "quarterly" | "yearly"
+  "categoryId": 1,                      // optional, must belong to user and be active
+  "description": null,                  // optional, max 500 characters
+  "autoRenew": true                     // optional, default true; false excludes from forecasts
+}
+```
+
+**Response `201`** — returns the created recurring income object (same shape as list items, without category join fields).
+
+**Errors**
+
+| Status | Condition |
+|---|---|
+| `400` | `categoryId` not found, archived, or belongs to another user |
+
+---
+
+### `PATCH /recurring-income/:id`
+
+Update a recurring income source. All fields optional.
+
+**Request body** *(all optional)*
+
+```jsonc
+{
+  "name": "Salary (updated)",
+  "amount": "3800.00",
+  "currency": "GBP",
+  "billingCycle": "monthly",
+  "categoryId": 2,
+  "description": "Post-raise salary",
+  "autoRenew": true
+}
+```
+
+**Response `200`** — returns the updated recurring income object.
+
+**Errors**
+
+| Status | Condition |
+|---|---|
+| `400` | `categoryId` not found, archived, or belongs to another user |
+| `404` | Recurring income source not found or belongs to another user |
+
+---
+
+### `DELETE /recurring-income/:id`
+
+Archive (soft-delete) a recurring income source. The record is preserved in the database with `archivedAt` set.
+
+**Response `200`**
+
+```json
+{ "data": { "message": "Recurring income archived" } }
+```
+
+**Errors**
+
+| Status | Condition |
+|---|---|
+| `404` | Recurring income source not found or belongs to another user |
+
+---
+
 ## Reports
 
 All endpoints require authentication.
@@ -990,7 +1107,7 @@ Monthly income/expense summary with per-category breakdown and budget utilisatio
 
 ### `GET /reports/forecast`
 
-Forward-looking expense forecast using current budgets, subscriptions, and savings goal contribution schedules.
+Forward-looking financial forecast using current budgets (expense and income), subscriptions, recurring income sources, and savings goal contribution schedules.
 
 **Query parameters**
 
@@ -1007,10 +1124,28 @@ Forward-looking expense forecast using current budgets, subscriptions, and savin
       "year": 2026,
       "month": 4,
       "projectedExpenses": "850.00",
+      "projectedIncome": "3500.00",
       "subscriptionCosts": "47.98",
+      "recurringIncomeSources": "3500.00",
       "savingsContributions": "416.67",
-      "totalProjected": "1314.65",
+      "totalProjected": "2233.35",
       "items": [
+        {
+          "name": "Monthly Salary",
+          "amount": "3500.00",
+          "currency": "GBP",
+          "date": "2026-04-01",
+          "type": "recurring-income",
+          "sourceId": 3
+        },
+        {
+          "name": "Income: Freelance",
+          "amount": "500.00",
+          "currency": "GBP",
+          "date": "2026-04-01",
+          "type": "income-budget",
+          "sourceId": 8
+        },
         {
           "name": "Netflix",
           "amount": "17.99",
@@ -1026,6 +1161,14 @@ Forward-looking expense forecast using current budgets, subscriptions, and savin
           "date": "2026-04-01",
           "type": "budget",
           "sourceId": 3
+        },
+        {
+          "name": "Savings: Emergency Fund",
+          "amount": "416.67",
+          "currency": "GBP",
+          "date": "2026-04-01",
+          "type": "savings",
+          "sourceId": 2
         }
       ]
     }
@@ -1033,25 +1176,57 @@ Forward-looking expense forecast using current budgets, subscriptions, and savin
 }
 ```
 
-Forecast item `type` values: `"subscription"` | `"budget"` | `"savings"`.
+#### Response fields
 
-Only subscriptions with `autoRenew: true` contribute to forecast costs.
+| Field | Description |
+|---|---|
+| `projectedExpenses` | Total of expense-category budget allocations |
+| `projectedIncome` | Total of all projected income (`recurringIncomeSources + budgetedIncome`) |
+| `subscriptionCosts` | Total of subscription renewal amounts for the month |
+| `recurringIncomeSources` | Total from recurring income sources only |
+| `savingsContributions` | Total of projected savings goal contributions |
+| `totalProjected` | **Net figure**: `projectedIncome − (projectedExpenses + subscriptionCosts + savingsContributions)`. Positive = surplus, negative = deficit. |
+| `items` | Individual line items sorted by date ascending |
+
+#### Forecast item `type` values
+
+| Value | Side | Description |
+|---|---|---|
+| `"recurring-income"` | income | A recurring income source firing this month |
+| `"income-budget"` | income | An income-category budget allocation |
+| `"subscription"` | expense | A subscription renewal occurring this month |
+| `"budget"` | expense | An expense-category budget allocation |
+| `"savings"` | expense | Projected savings goal contribution |
+
+#### Subscription renewal logic
+
+`getSubscriptionRenewalsInMonth()` steps through actual calendar dates starting from `nextRenewalDate`, advancing by the billing cycle, and collects every date that falls within the target month.
+
+- Subscriptions with `autoRenew: false` are excluded entirely.
+- Weekly and fortnightly subscriptions advance by the exact number of days; monthly and longer advance by whole calendar months.
+- A subscription can produce **multiple renewal items** in one month (e.g. a weekly subscription renews 4–5 times).
+
+#### Recurring income firing logic
+
+- `autoRenew: false` → excluded entirely.
+- `billingCycle` with `cycleMonths ≤ 1` (weekly, fortnightly, monthly) → fires every forecast month.
+- `billingCycle` with `cycleMonths > 1` (quarterly = 3, yearly = 12) → fires when `(year × 12 + month − 1) % round(cycleMonths) === 0`.
 
 #### Savings contribution calculation
 
-For each forecast month, the savings contribution per goal is calculated as:
+For each forecast month, the projected contribution per goal is:
 
 ```
 monthlyContribution = remainingAmount / monthsRemaining
 ```
 
 Where:
-- `remainingAmount` = `targetAmount − currentAmount` (the amount still needed to reach the goal)
-- `monthsRemaining` = months from **the forecast month** to the goal's `targetDate` (minimum 1)
+- `remainingAmount` = `targetAmount − currentAmount`
+- `monthsRemaining` = months from **the forecast month** to `targetDate` (minimum 1)
 
 Because `monthsRemaining` shrinks as the forecast advances into the future, the projected monthly contribution **increases over time** — reflecting the reality that the closer a deadline gets, the more needs to be set aside each month to stay on track.
 
-A goal only appears in a forecast month if `forecastMonthStart <= targetDate` (i.e. the goal has not yet passed its deadline). Goals where `currentAmount >= targetAmount` are excluded entirely.
+A goal only appears in a forecast month if `forecastMonthStart ≤ targetDate` (i.e. the deadline has not yet passed). Goals where `currentAmount ≥ targetAmount` are excluded entirely.
 
 ---
 

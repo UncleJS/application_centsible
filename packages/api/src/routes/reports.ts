@@ -206,6 +206,8 @@ export const reportRoutes = new Elysia({
     // Get latest month's budgets as baseline
     const currentYear = today.getFullYear();
     const currentMonth = today.getMonth() + 1;
+
+    // Expense budgets only
     const latestBudgets = await db
       .select({
         categoryId: schema.budgets.categoryId,
@@ -223,7 +225,31 @@ export const reportRoutes = new Elysia({
           eq(schema.budgets.userId, user.id),
           eq(schema.budgets.year, currentYear),
           eq(schema.budgets.month, currentMonth),
-          isNull(schema.budgets.archivedAt)
+          isNull(schema.budgets.archivedAt),
+          eq(schema.categories.type, "expense")
+        )
+      );
+
+    // Income budgets (once-off / manually set income for the month)
+    const latestIncomeBudgets = await db
+      .select({
+        categoryId: schema.budgets.categoryId,
+        categoryName: schema.categories.name,
+        amount: schema.budgets.amount,
+        currency: schema.budgets.currency,
+      })
+      .from(schema.budgets)
+      .leftJoin(
+        schema.categories,
+        eq(schema.budgets.categoryId, schema.categories.id)
+      )
+      .where(
+        and(
+          eq(schema.budgets.userId, user.id),
+          eq(schema.budgets.year, currentYear),
+          eq(schema.budgets.month, currentMonth),
+          isNull(schema.budgets.archivedAt),
+          eq(schema.categories.type, "income")
         )
       );
 
@@ -313,7 +339,7 @@ export const reportRoutes = new Elysia({
         }
       }
 
-      // Add budget amounts as projected expenses
+      // Add expense budget amounts as projected expenses
       let budgetTotal = 0;
       for (const budget of latestBudgets) {
         budgetTotal += parseFloat(budget.amount);
@@ -327,13 +353,29 @@ export const reportRoutes = new Elysia({
         });
       }
 
-      const totalProjected = subscriptionTotal + savingsTotal + budgetTotal;
+      // Add income budget amounts (once-off / manually set income)
+      let budgetedIncomeTotal = 0;
+      for (const budget of latestIncomeBudgets) {
+        budgetedIncomeTotal += parseFloat(budget.amount);
+        items.push({
+          name: `Income: ${budget.categoryName}`,
+          amount: budget.amount,
+          currency: budget.currency,
+          date: `${fYear}-${String(fMonth).padStart(2, "0")}-01`,
+          type: "income-budget",
+          sourceId: budget.categoryId,
+        });
+      }
+
+      const totalIncome = recurringIncomeTotal + budgetedIncomeTotal;
+      const totalExpenses = subscriptionTotal + savingsTotal + budgetTotal;
+      const totalProjected = totalIncome - totalExpenses;
 
       forecast.push({
         year: fYear,
         month: fMonth,
         projectedExpenses: budgetTotal.toFixed(2),
-        projectedIncome: recurringIncomeTotal.toFixed(2),
+        projectedIncome: totalIncome.toFixed(2),
         subscriptionCosts: subscriptionTotal.toFixed(2),
         recurringIncomeSources: recurringIncomeTotal.toFixed(2),
         savingsContributions: savingsTotal.toFixed(2),

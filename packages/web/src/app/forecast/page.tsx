@@ -47,7 +47,7 @@ interface ForecastItem {
   amount: string;
   currency: string;
   date: string;
-  type: "subscription" | "recurring" | "savings" | "budget" | "recurring-income";
+  type: "subscription" | "recurring" | "savings" | "budget" | "recurring-income" | "income-budget";
   sourceId: number;
 }
 
@@ -91,6 +91,11 @@ const TYPE_BADGE: Record<
     label: "Recurring Income",
     className:
       "bg-emerald-950 text-emerald-400 border border-emerald-800 hover:bg-emerald-950",
+  },
+  "income-budget": {
+    label: "Income Budget",
+    className:
+      "bg-teal-950 text-teal-400 border border-teal-800 hover:bg-teal-950",
   },
 };
 
@@ -208,7 +213,9 @@ function MonthCard({
               {sortedItems.length} item{sortedItems.length !== 1 ? "s" : ""}
             </CardDescription>
           </div>
-          <span className="text-xl font-semibold text-zinc-100 tabular-nums font-mono">
+          <span className={`text-xl font-semibold tabular-nums font-mono ${
+            parseFloat(data.totalProjected) >= 0 ? "text-emerald-400" : "text-red-400"
+          }`}>
             {formatCurrency(data.totalProjected, currency)}
           </span>
         </div>
@@ -254,7 +261,7 @@ function MonthCard({
             <div className="flex items-center justify-between text-sm">
               <span className="flex items-center gap-1.5 text-zinc-300">
                 <span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                Recurring Income
+                Income
               </span>
               <span className="text-emerald-400 tabular-nums font-mono">
                 +{formatCurrency(data.projectedIncome, currency)}
@@ -344,7 +351,7 @@ export default function ForecastPage() {
   // Totals across all months
   const totals = forecastData.reduce(
     (acc, m) => {
-      acc.projected += parseFloat(m.totalProjected) || 0;
+      acc.projected += (parseFloat(m.subscriptionCosts) || 0) + (parseFloat(m.projectedExpenses) || 0) + (parseFloat(m.savingsContributions) || 0);
       acc.subscriptions += parseFloat(m.subscriptionCosts) || 0;
       acc.savings += parseFloat(m.savingsContributions) || 0;
       acc.income += parseFloat(m.projectedIncome) || 0;

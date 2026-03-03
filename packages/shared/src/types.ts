@@ -195,6 +195,6 @@ export interface ForecastItem {
   amount: string;
   currency: string;
   date: string;
-  type: "subscription" | "recurring-income" | "recurring" | "savings" | "budget";
+  type: "subscription" | "recurring-income" | "recurring" | "savings" | "budget" | "income-budget";
   sourceId: number;
 }

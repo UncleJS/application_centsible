@@ -1308,7 +1308,7 @@ export default function BudgetsPage() {
           {/* ── Row 4: Projected Balance (full-width) ── */}
           <Card
             className={`bg-zinc-900 border-zinc-800 lg:col-span-3 ${
-              ratesPending ? "" : totalBudgetedIncome - totalMonthlyCommitted >= 0
+              ratesPending ? "" : totalBudgetedIncome + totalMonthlyRecurringIncome - totalMonthlyCommitted >= 0
                 ? "border-emerald-800/50"
                 : "border-red-800/50"
             }`}
@@ -1326,15 +1326,15 @@ export default function BudgetsPage() {
                 <>
                   <p
                     className={`text-3xl font-bold font-mono ${
-                      totalBudgetedIncome - totalMonthlyCommitted >= 0
+                      totalBudgetedIncome + totalMonthlyRecurringIncome - totalMonthlyCommitted >= 0
                         ? "text-emerald-400"
                         : "text-red-400"
                     }`}
                   >
-                    {formatCurrency(totalBudgetedIncome - totalMonthlyCommitted, currency)}
+                    {formatCurrency(totalBudgetedIncome + totalMonthlyRecurringIncome - totalMonthlyCommitted, currency)}
                   </p>
                   <p className="text-xs text-zinc-600">
-                    budgeted income − committed (expense budgets + subscriptions + savings)
+                    budgeted income + recurring income − committed (expense budgets + subscriptions + savings)
                   </p>
                 </>
               )}
