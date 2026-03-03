@@ -42,8 +42,10 @@ import {
   Target,
   TrendingDown,
   TrendingUp,
+  RefreshCw,
 } from "lucide-react";
 import { BILLING_CYCLE_MONTHS } from "@centsible/shared";
+import type { RecurringIncome, Subscription } from "@centsible/shared";
 
 interface Budget {
   id: number;
@@ -60,15 +62,6 @@ interface Category {
   id: number;
   name: string;
   type: string;
-}
-
-interface Subscription {
-  id: number;
-  type: "income" | "expense";
-  categoryId: number | null;
-  amount: string;
-  currency: string;
-  billingCycle: string;
 }
 
 interface SavingsGoal {
@@ -151,8 +144,6 @@ function BudgetCard({
   const actual = parseFloat(budget.spent ?? "0");
   const pct = amount > 0 ? Math.min(Math.round((actual / amount) * 100), 100) : 0;
 
-  // For income: green is always good (received >= budgeted is ideal).
-  // For expense: red when near/over limit.
   const barColor = isIncome
     ? "bg-emerald-500"
     : getProgressColor(pct);
@@ -231,6 +222,8 @@ function BudgetCard({
   );
 }
 
+// ── Budget Dialog ─────────────────────────────────────────────────────────────
+
 interface BudgetDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -240,7 +233,7 @@ interface BudgetDialogProps {
   year: number;
   month: number;
   currency: string;
-  subscriptions: Subscription[];
+  recurringIncome: RecurringIncome[];
   onSuccess: () => void;
 }
 
@@ -253,7 +246,7 @@ function BudgetDialog({
   year,
   month,
   currency,
-  subscriptions,
+  recurringIncome,
   onSuccess,
 }: BudgetDialogProps) {
   const [categoryId, setCategoryId] = useState<string>("");
@@ -280,15 +273,13 @@ function BudgetDialog({
   }, [open, editingBudget]);
 
   // When user selects an income category while creating, pre-fill amount from
-  // a matching recurring income subscription (same categoryId).
+  // a matching recurring income record (same categoryId).
   function handleCategoryChange(value: string) {
     setCategoryId(value);
     setPrefillHint(null);
     if (selectedType !== "income" || !value) return;
     const catId = Number(value);
-    const match = subscriptions.find(
-      (s) => s.type === "income" && s.categoryId === catId
-    );
+    const match = recurringIncome.find((ri) => ri.categoryId === catId);
     if (match) {
       const cycleMonths = BILLING_CYCLE_MONTHS[match.billingCycle] ?? 1;
       const monthly = parseFloat(match.amount) / cycleMonths;
@@ -302,7 +293,6 @@ function BudgetDialog({
 
   const isEditing = !!editingBudget;
 
-  // Filter categories by selected type, excluding already-budgeted ones (except the one being edited)
   const availableCategories = isEditing
     ? allCategories.filter((c) => c.id === editingBudget!.categoryId)
     : allCategories.filter(
@@ -481,6 +471,370 @@ function BudgetDialog({
   );
 }
 
+// ── Recurring Income Dialog ───────────────────────────────────────────────────
+
+const BILLING_CYCLES = ["weekly", "fortnightly", "monthly", "quarterly", "yearly"] as const;
+
+interface RecurringIncomeDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  editing: RecurringIncome | null;
+  incomeCategories: Category[];
+  currency: string;
+  onSuccess: () => void;
+}
+
+function RecurringIncomeDialog({
+  open,
+  onOpenChange,
+  editing,
+  incomeCategories,
+  currency,
+  onSuccess,
+}: RecurringIncomeDialogProps) {
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [amount, setAmount] = useState("");
+  const [riCurrency, setRiCurrency] = useState(currency);
+  const [billingCycle, setBillingCycle] = useState<string>("monthly");
+  const [categoryId, setCategoryId] = useState<string>("");
+  const [autoRenew, setAutoRenew] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      if (editing) {
+        setName(editing.name);
+        setDescription(editing.description ?? "");
+        setAmount(editing.amount);
+        setRiCurrency(editing.currency);
+        setBillingCycle(editing.billingCycle);
+        setCategoryId(editing.categoryId ? String(editing.categoryId) : "");
+        setAutoRenew(editing.autoRenew);
+      } else {
+        setName("");
+        setDescription("");
+        setAmount("");
+        setRiCurrency(currency);
+        setBillingCycle("monthly");
+        setCategoryId("");
+        setAutoRenew(true);
+      }
+    }
+  }, [open, editing, currency]);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const parsed = parseFloat(amount);
+    if (!name.trim()) {
+      toast.error("Please enter a name.");
+      return;
+    }
+    if (!amount || isNaN(parsed) || parsed <= 0) {
+      toast.error("Please enter a valid amount greater than 0.");
+      return;
+    }
+
+    const body = {
+      name: name.trim(),
+      description: description.trim() || null,
+      amount: parsed.toFixed(2),
+      currency: riCurrency,
+      billingCycle,
+      categoryId: categoryId ? Number(categoryId) : null,
+      autoRenew,
+    };
+
+    setSubmitting(true);
+    try {
+      if (editing) {
+        await api.updateRecurringIncome(editing.id, body);
+        toast.success("Recurring income updated.");
+      } else {
+        await api.createRecurringIncome(body);
+        toast.success("Recurring income added.");
+      }
+      onOpenChange(false);
+      onSuccess();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Something went wrong.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="bg-zinc-900 border-zinc-800 text-zinc-100 sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="text-zinc-100">
+            {editing ? "Edit Recurring Income" : "Add Recurring Income"}
+          </DialogTitle>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+          {/* Name */}
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="ri-name" className="text-zinc-300">Name</Label>
+            <Input
+              id="ri-name"
+              placeholder="e.g. Salary, Freelance"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="border-zinc-700 bg-zinc-800/50 text-zinc-100 placeholder:text-zinc-600"
+              required
+            />
+          </div>
+
+          {/* Description */}
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="ri-description" className="text-zinc-300">
+              Description <span className="text-zinc-600 font-normal">(optional)</span>
+            </Label>
+            <Input
+              id="ri-description"
+              placeholder="Additional notes…"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="border-zinc-700 bg-zinc-800/50 text-zinc-100 placeholder:text-zinc-600"
+            />
+          </div>
+
+          {/* Amount + Currency */}
+          <div className="flex gap-3">
+            <div className="flex flex-col gap-2 flex-1">
+              <Label htmlFor="ri-amount" className="text-zinc-300">Amount</Label>
+              <Input
+                id="ri-amount"
+                type="number"
+                inputMode="decimal"
+                min="0.01"
+                step="0.01"
+                placeholder="0.00"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                className="border-zinc-700 bg-zinc-800/50 text-zinc-100 placeholder:text-zinc-600 font-mono"
+                required
+              />
+            </div>
+            <div className="flex flex-col gap-2 w-28">
+              <Label htmlFor="ri-currency" className="text-zinc-300">Currency</Label>
+              <Input
+                id="ri-currency"
+                placeholder="GBP"
+                value={riCurrency}
+                onChange={(e) => setRiCurrency(e.target.value.toUpperCase())}
+                maxLength={3}
+                className="border-zinc-700 bg-zinc-800/50 text-zinc-100 placeholder:text-zinc-600 font-mono uppercase"
+              />
+            </div>
+          </div>
+
+          {/* Billing Cycle */}
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="ri-billing-cycle" className="text-zinc-300">Billing Cycle</Label>
+            <Select value={billingCycle} onValueChange={setBillingCycle}>
+              <SelectTrigger
+                id="ri-billing-cycle"
+                className="w-full border-zinc-700 bg-zinc-800/50 text-zinc-100"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-zinc-900 border-zinc-700 text-zinc-100">
+                {BILLING_CYCLES.map((cycle) => (
+                  <SelectItem
+                    key={cycle}
+                    value={cycle}
+                    className="focus:bg-zinc-800 focus:text-zinc-100 capitalize"
+                  >
+                    {cycle.charAt(0).toUpperCase() + cycle.slice(1)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Category */}
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="ri-category" className="text-zinc-300">
+              Category <span className="text-zinc-600 font-normal">(optional)</span>
+            </Label>
+            <Select
+              value={categoryId}
+              onValueChange={setCategoryId}
+            >
+              <SelectTrigger
+                id="ri-category"
+                className="w-full border-zinc-700 bg-zinc-800/50 text-zinc-100 data-[placeholder]:text-zinc-500"
+              >
+                <SelectValue placeholder="None" />
+              </SelectTrigger>
+              <SelectContent className="bg-zinc-900 border-zinc-700 text-zinc-100">
+                <SelectItem value="" className="focus:bg-zinc-800 focus:text-zinc-100 text-zinc-500">
+                  None
+                </SelectItem>
+                {incomeCategories.map((cat) => (
+                  <SelectItem
+                    key={cat.id}
+                    value={String(cat.id)}
+                    className="focus:bg-zinc-800 focus:text-zinc-100"
+                  >
+                    {cat.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Auto Renew */}
+          <div className="flex items-center justify-between rounded-lg border border-zinc-800 bg-zinc-800/30 px-4 py-3">
+            <div className="flex flex-col gap-0.5">
+              <span className="text-sm font-medium text-zinc-300">Auto-renew</span>
+              <span className="text-xs text-zinc-500">Automatically continues each cycle</span>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={autoRenew}
+              onClick={() => setAutoRenew(!autoRenew)}
+              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900 ${
+                autoRenew ? "bg-emerald-600" : "bg-zinc-700"
+              }`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-lg ring-0 transition-transform ${
+                  autoRenew ? "translate-x-5" : "translate-x-0"
+                }`}
+              />
+            </button>
+          </div>
+
+          <DialogFooter className="pt-1">
+            <Button
+              type="button"
+              variant="outline"
+              className="border-zinc-700 bg-transparent text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"
+              onClick={() => onOpenChange(false)}
+              disabled={submitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={submitting}
+              className="bg-emerald-600 text-white hover:bg-emerald-500"
+            >
+              {submitting && <Loader2 className="size-4 animate-spin" />}
+              {editing ? "Save Changes" : "Add Income"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ── Recurring Income Card ─────────────────────────────────────────────────────
+
+interface RecurringIncomeCardProps {
+  item: RecurringIncome;
+  currency: string;
+  exchangeRates: Record<string, number>;
+  onEdit: (item: RecurringIncome) => void;
+  onDelete: (id: number) => void;
+  isDeleting: boolean;
+}
+
+function RecurringIncomeCard({
+  item,
+  currency,
+  exchangeRates,
+  onEdit,
+  onDelete,
+  isDeleting,
+}: RecurringIncomeCardProps) {
+  const cycleMonths = BILLING_CYCLE_MONTHS[item.billingCycle] ?? 1;
+  const rate =
+    item.currency === currency ? 1 : (exchangeRates[item.currency] ?? null);
+  const monthlyInUserCurrency =
+    rate !== null && rate > 0
+      ? parseFloat(item.amount) / cycleMonths / rate
+      : null;
+
+  const cycleLabel =
+    item.billingCycle.charAt(0).toUpperCase() + item.billingCycle.slice(1);
+
+  return (
+    <Card className="bg-zinc-900 border-zinc-800">
+      <CardHeader className="pb-0">
+        <CardTitle className="text-base text-zinc-100 flex items-center gap-2">
+          {item.categoryIcon && (
+            <span className="text-sm">{item.categoryIcon}</span>
+          )}
+          {item.name}
+        </CardTitle>
+        <CardDescription className="text-xs text-zinc-500">
+          {item.categoryName ?? "No category"} · {cycleLabel}
+          {item.autoRenew && (
+            <span className="ml-1.5 inline-flex items-center gap-0.5 text-emerald-600">
+              <RefreshCw className="size-2.5" />
+              auto
+            </span>
+          )}
+        </CardDescription>
+        <CardAction>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800"
+              onClick={() => onEdit(item)}
+              aria-label={`Edit ${item.name}`}
+            >
+              <Pencil className="size-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="text-zinc-400 hover:text-red-400 hover:bg-zinc-800 disabled:opacity-30"
+              onClick={() => onDelete(item.id)}
+              disabled={isDeleting}
+              aria-label={`Delete ${item.name}`}
+            >
+              {isDeleting ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <Trash2 className="size-3.5" />
+              )}
+            </Button>
+          </div>
+        </CardAction>
+      </CardHeader>
+
+      <CardContent className="pt-3">
+        <p className="text-2xl font-bold font-mono text-emerald-400">
+          {item.currency} {parseFloat(item.amount).toFixed(2)}
+        </p>
+        {monthlyInUserCurrency !== null && item.currency !== currency && (
+          <p className="text-xs text-zinc-600 font-mono mt-0.5">
+            ≈ {formatCurrency(monthlyInUserCurrency, currency)}/mo
+          </p>
+        )}
+        {monthlyInUserCurrency !== null && item.currency === currency && cycleMonths !== 1 && (
+          <p className="text-xs text-zinc-600 font-mono mt-0.5">
+            ≈ {formatCurrency(monthlyInUserCurrency, currency)}/mo
+          </p>
+        )}
+        {item.description && (
+          <p className="text-xs text-zinc-600 mt-1 truncate">{item.description}</p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
+
 export default function BudgetsPage() {
   const { user } = useAuthStore();
   const currency = user?.defaultCurrency ?? "GBP";
@@ -493,12 +847,19 @@ export default function BudgetsPage() {
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [recurringIncome, setRecurringIncome] = useState<RecurringIncome[]>([]);
   const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
+  // Budget dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
+
+  // Recurring income dialog state
+  const [riDialogOpen, setRiDialogOpen] = useState(false);
+  const [editingRI, setEditingRI] = useState<RecurringIncome | null>(null);
+  const [deletingRIId, setDeletingRIId] = useState<number | null>(null);
 
   const fetchBudgets = useCallback(async () => {
     setLoading(true);
@@ -532,6 +893,15 @@ export default function BudgetsPage() {
     }
   }, []);
 
+  const fetchRecurringIncome = useCallback(async () => {
+    try {
+      const res = await api.getRecurringIncome();
+      setRecurringIncome(res.data ?? []);
+    } catch {
+      // non-critical
+    }
+  }, []);
+
   const fetchSavingsGoals = useCallback(async () => {
     try {
       const res = await api.getSavingsGoals();
@@ -548,9 +918,10 @@ export default function BudgetsPage() {
   useEffect(() => {
     fetchCategories();
     fetchSubscriptions();
+    fetchRecurringIncome();
     fetchSavingsGoals();
     fetchRates(currency);
-  }, [fetchCategories, fetchSubscriptions, fetchSavingsGoals, fetchRates, currency]);
+  }, [fetchCategories, fetchSubscriptions, fetchRecurringIncome, fetchSavingsGoals, fetchRates, currency]);
 
   function prevMonth() {
     if (month === 1) {
@@ -595,6 +966,31 @@ export default function BudgetsPage() {
     setDialogOpen(true);
   }
 
+  async function handleDeleteRI(id: number) {
+    setDeletingRIId(id);
+    try {
+      await api.deleteRecurringIncome(id);
+      toast.success("Recurring income deleted.");
+      fetchRecurringIncome();
+    } catch (err: unknown) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to delete recurring income."
+      );
+    } finally {
+      setDeletingRIId(null);
+    }
+  }
+
+  function handleEditRI(item: RecurringIncome) {
+    setEditingRI(item);
+    setRiDialogOpen(true);
+  }
+
+  function handleCreateRI() {
+    setEditingRI(null);
+    setRiDialogOpen(true);
+  }
+
   // Split budgets by category type
   const expenseBudgets = budgets.filter((b) => b.categoryType !== "income");
   const incomeBudgets = budgets.filter((b) => b.categoryType === "income");
@@ -621,10 +1017,7 @@ export default function BudgetsPage() {
   );
   const totalIncomeSurplus = totalReceivedIncome - totalBudgetedIncome;
 
-  // Total monthly subscription cost — each subscription converted to userCurrency.
-  // Rates are fetched with base=userCurrency so rates[subCurrency] = "units of subCurrency
-  // per 1 unit of userCurrency". To convert subAmount → userCurrency: divide by the rate.
-  // Skips subscriptions whose rate is missing rather than distorting the total with 1:1.
+  // Total monthly subscription cost (all subscriptions are expense-only now)
   const totalMonthlySubscriptions = useMemo(
     () =>
       subscriptions.reduce((sum, sub) => {
@@ -639,9 +1032,7 @@ export default function BudgetsPage() {
     [subscriptions, exchangeRates, currency]
   );
 
-  // Total monthly savings needed — mirrors the forecast API formula exactly:
-  // monthsRemaining = (targetYear - fYear) * 12 + (targetMonth - fMonth)
-  // where fYear/fMonth is the DISPLAYED budget month (not today).
+  // Total monthly savings needed
   const totalMonthlySavings = useMemo(() => {
     return savingsGoals.reduce((sum, goal) => {
       if (goal.archivedAt) return sum;
@@ -651,15 +1042,13 @@ export default function BudgetsPage() {
 
       const targetDate = new Date(goal.targetDate + "T00:00:00Z");
       const targetYear = targetDate.getUTCFullYear();
-      const targetMonth = targetDate.getUTCMonth() + 1; // 1-based
+      const targetMonth = targetDate.getUTCMonth() + 1;
 
-      // Use displayed month as the reference point, same as forecast API
       const monthsRemaining = Math.max(
         1,
         (targetYear - year) * 12 + (targetMonth - month)
       );
 
-      // Skip goals whose target date is before or in the displayed month
       if ((targetYear - year) * 12 + (targetMonth - month) <= 0) return sum;
 
       return sum + (target - current) / monthsRemaining;
@@ -667,18 +1056,17 @@ export default function BudgetsPage() {
   }, [savingsGoals, year, month]);
 
   // Grand total monthly commitment: expense budgets + subscriptions + savings
-  // Income budgets are not a "commitment" — they are expected inflows
   const totalMonthlyCommitted = totalBudgetedExpenses + totalMonthlySubscriptions + totalMonthlySavings;
 
-  // Rates are considered pending if the store hasn't loaded yet and there are
-  // foreign-currency subscriptions whose conversion would otherwise be 1:1.
   const ratesPending =
     Object.keys(exchangeRates).length === 0 &&
     subscriptions.some((s) => s.currency !== currency);
 
   const budgetedCategoryIds = new Set(budgets.map((b) => b.categoryId));
 
-  // Past month: year/month is before today's year/month
+  // Income categories for the recurring income dialog
+  const incomeCategories = categories.filter((c) => c.type === "income");
+
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth() + 1;
   const isPastMonth =
@@ -1003,7 +1391,64 @@ export default function BudgetsPage() {
         </div>
       )}
 
-      {/* Create / Edit Dialog */}
+      {/* ── Recurring Income Section ─────────────────────────────────────────── */}
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex flex-col gap-0.5">
+            <h2 className="text-base font-semibold text-zinc-100 flex items-center gap-2">
+              <TrendingUp className="size-4 text-emerald-400" />
+              Recurring Income
+            </h2>
+            <p className="text-sm text-zinc-500">
+              Regular income sources used to project monthly earnings.
+            </p>
+          </div>
+          <Button
+            onClick={handleCreateRI}
+            size="sm"
+            className="bg-emerald-600 text-white hover:bg-emerald-500"
+          >
+            <Plus className="size-3.5" />
+            Add
+          </Button>
+        </div>
+
+        {recurringIncome.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-4 rounded-xl border border-dashed border-zinc-700 bg-zinc-900/40 py-12 text-center">
+            <TrendingUp className="size-10 text-zinc-600" />
+            <div className="flex flex-col gap-1">
+              <p className="text-sm font-semibold text-zinc-300">No recurring income yet</p>
+              <p className="text-xs text-zinc-500">
+                Add salary, freelance, or any regular income source.
+              </p>
+            </div>
+            <Button
+              onClick={handleCreateRI}
+              size="sm"
+              className="bg-emerald-600 text-white hover:bg-emerald-500"
+            >
+              <Plus className="size-3.5" />
+              Add Income
+            </Button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {recurringIncome.map((item) => (
+              <RecurringIncomeCard
+                key={item.id}
+                item={item}
+                currency={currency}
+                exchangeRates={exchangeRates}
+                onEdit={handleEditRI}
+                onDelete={handleDeleteRI}
+                isDeleting={deletingRIId === item.id}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Budget Create / Edit Dialog */}
       <BudgetDialog
         open={dialogOpen}
         onOpenChange={(open) => {
@@ -1016,8 +1461,21 @@ export default function BudgetsPage() {
         year={year}
         month={month}
         currency={currency}
-        subscriptions={subscriptions}
+        recurringIncome={recurringIncome}
         onSuccess={fetchBudgets}
+      />
+
+      {/* Recurring Income Create / Edit Dialog */}
+      <RecurringIncomeDialog
+        open={riDialogOpen}
+        onOpenChange={(open) => {
+          setRiDialogOpen(open);
+          if (!open) setEditingRI(null);
+        }}
+        editing={editingRI}
+        incomeCategories={incomeCategories}
+        currency={currency}
+        onSuccess={fetchRecurringIncome}
       />
     </div>
   );

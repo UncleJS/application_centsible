@@ -10,6 +10,7 @@ import { transactionRoutes } from "./routes/transactions";
 import { budgetRoutes } from "./routes/budgets";
 import { savingsGoalRoutes } from "./routes/savings-goals";
 import { subscriptionRoutes } from "./routes/subscriptions";
+import { recurringIncomeRoutes } from "./routes/recurring-income";
 import { reportRoutes } from "./routes/reports";
 import { exchangeRateRoutes } from "./routes/exchange-rates";
 
@@ -58,6 +59,7 @@ if (!config.isProduction) {
           { name: "Budgets", description: "Monthly budget limits" },
           { name: "Savings Goals", description: "Savings targets" },
           { name: "Subscriptions", description: "Recurring subscriptions" },
+          { name: "Recurring Income", description: "Recurring income sources" },
           { name: "Reports", description: "Reporting and forecasts" },
           { name: "Exchange Rates", description: "Currency exchange rates" },
         ],
@@ -92,6 +94,7 @@ app
   .use(budgetRoutes)
   .use(savingsGoalRoutes)
   .use(subscriptionRoutes)
+  .use(recurringIncomeRoutes)
   .use(reportRoutes)
   .use(exchangeRateRoutes)
   .listen(config.port);

@@ -15,6 +15,13 @@
       "when": 1772310265155,
       "tag": "0001_recurring_income_and_transaction_flag",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1772310265156,
+      "tag": "0002_split_recurring_income",
+      "breakpoints": true
     }
   ]
 }

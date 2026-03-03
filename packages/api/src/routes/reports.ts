@@ -170,7 +170,7 @@ export const reportRoutes = new Elysia({
     const today = new Date();
     const forecast: ForecastMonth[] = [];
 
-    // Get active subscriptions (both expense and income types)
+    // Get active subscriptions (expense-only)
     const subs = await db
       .select()
       .from(schema.subscriptions)
@@ -181,9 +181,16 @@ export const reportRoutes = new Elysia({
         )
       );
 
-    // Split into expense subscriptions and recurring income subscriptions
-    const expenseSubs = subs.filter((s) => s.type !== "income");
-    const incomeSubs = subs.filter((s) => s.type === "income");
+    // Get active recurring income sources
+    const incomeRows = await db
+      .select()
+      .from(schema.recurringIncome)
+      .where(
+        and(
+          eq(schema.recurringIncome.userId, user.id),
+          isNull(schema.recurringIncome.archivedAt)
+        )
+      );
 
     // Get active savings goals
     const goals = await db
@@ -230,7 +237,7 @@ export const reportRoutes = new Elysia({
 
       // Calculate subscription costs for this month (expense subscriptions)
       let subscriptionTotal = 0;
-      for (const sub of expenseSubs) {
+      for (const sub of subs) {
         const renewals = getSubscriptionRenewalsInMonth(sub, fYear, fMonth);
         for (const renewal of renewals) {
           const amount = parseFloat(sub.amount);
@@ -246,20 +253,31 @@ export const reportRoutes = new Elysia({
         }
       }
 
-      // Calculate recurring income for this month (income subscriptions)
+      // Calculate recurring income for this month
       let recurringIncomeTotal = 0;
-      for (const sub of incomeSubs) {
-        const renewals = getSubscriptionRenewalsInMonth(sub, fYear, fMonth);
-        for (const renewal of renewals) {
-          const amount = parseFloat(sub.amount);
-          recurringIncomeTotal += amount;
+      for (const inc of incomeRows) {
+        if (!inc.autoRenew) continue;
+        const cycleMonths = BILLING_CYCLE_MONTHS[inc.billingCycle] || 1;
+        // For sub-monthly cycles (weekly/fortnightly): fires every month
+        // For monthly: fires every month
+        // For supra-monthly (quarterly=3, yearly=12): fires every N months
+        // Use absolute month index from year 0 to determine fire months
+        let firesThisMonth: boolean;
+        if (cycleMonths <= 1) {
+          firesThisMonth = true;
+        } else {
+          const absMonth = fYear * 12 + (fMonth - 1);
+          firesThisMonth = absMonth % Math.round(cycleMonths) === 0;
+        }
+        if (firesThisMonth) {
+          recurringIncomeTotal += parseFloat(inc.amount);
           items.push({
-            name: sub.name,
-            amount: sub.amount,
-            currency: sub.currency,
-            date: renewal,
+            name: inc.name,
+            amount: inc.amount,
+            currency: inc.currency,
+            date: `${fYear}-${String(fMonth).padStart(2, "0")}-01`,
             type: "recurring-income",
-            sourceId: sub.id,
+            sourceId: inc.id,
           });
         }
       }

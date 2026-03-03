@@ -90,7 +90,6 @@ export interface Subscription {
   id: number;
   userId: number;
   categoryId: number | null;
-  type: TransactionType; // 'income' | 'expense'
   name: string;
   description: string | null;
   amount: string;
@@ -99,6 +98,23 @@ export interface Subscription {
   nextRenewalDate: string; // YYYY-MM-DD
   startDate: string; // YYYY-MM-DD
   url: string | null;
+  autoRenew: boolean;
+  createdAt: string;
+  updatedAt: string;
+  archivedAt: string | null;
+}
+
+export interface RecurringIncome {
+  id: number;
+  userId: number;
+  categoryId: number | null;
+  categoryName?: string | null;
+  categoryIcon?: string | null;
+  name: string;
+  description: string | null;
+  amount: string;
+  currency: string;
+  billingCycle: BillingCycle;
   autoRenew: boolean;
   createdAt: string;
   updatedAt: string;

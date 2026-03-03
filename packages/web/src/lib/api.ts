@@ -8,6 +8,7 @@ import type {
   SavingsGoal,
   SavingsContribution,
   Subscription,
+  RecurringIncome,
   MonthlySummary,
   ForecastMonth,
 } from "@centsible/shared";
@@ -295,9 +296,8 @@ class ApiClient {
   }
 
   // ── Subscriptions ──
-  async getSubscriptions(params?: { type?: "income" | "expense" }) {
-    const query = params?.type ? `?type=${params.type}` : "";
-    return this.request<{ data: Subscription[] }>(`/subscriptions${query}`);
+  async getSubscriptions() {
+    return this.request<{ data: Subscription[] }>("/subscriptions");
   }
 
   async getUpcomingSubscriptions(days?: number) {
@@ -321,6 +321,29 @@ class ApiClient {
 
   async deleteSubscription(id: number) {
     return this.request<{ message: string }>(`/subscriptions/${id}`, { method: "DELETE" });
+  }
+
+  // ── Recurring Income ──
+  async getRecurringIncome() {
+    return this.request<{ data: RecurringIncome[] }>("/recurring-income");
+  }
+
+  async createRecurringIncome(body: Record<string, unknown>) {
+    return this.request<{ data: RecurringIncome }>("/recurring-income", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+  }
+
+  async updateRecurringIncome(id: number, body: Record<string, unknown>) {
+    return this.request<{ data: RecurringIncome }>(`/recurring-income/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    });
+  }
+
+  async deleteRecurringIncome(id: number) {
+    return this.request<{ message: string }>(`/recurring-income/${id}`, { method: "DELETE" });
   }
 
   // ── Reports ──

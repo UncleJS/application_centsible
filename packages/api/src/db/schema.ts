@@ -212,7 +212,6 @@ export const subscriptions = mysqlTable(
     categoryId: int("category_id").references(() => categories.id, {
       onDelete: "set null",
     }),
-    type: varchar("type", { length: 10 }).notNull().default("expense"), // 'income' | 'expense'
     name: varchar("name", { length: 100 }).notNull(),
     description: text("description"),
     amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
@@ -227,6 +226,31 @@ export const subscriptions = mysqlTable(
   (table) => [
     index("subscriptions_user_idx").on(table.userId),
     index("subscriptions_renewal_idx").on(table.userId, table.nextRenewalDate),
+  ]
+);
+
+// ── Recurring Income ──
+
+export const recurringIncome = mysqlTable(
+  "recurring_income",
+  {
+    id: int("id").primaryKey().autoincrement(),
+    userId: int("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    categoryId: int("category_id").references(() => categories.id, {
+      onDelete: "set null",
+    }),
+    name: varchar("name", { length: 100 }).notNull(),
+    description: text("description"),
+    amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+    currency: varchar("currency", { length: 3 }).notNull(),
+    billingCycle: varchar("billing_cycle", { length: 20 }).notNull(),
+    autoRenew: boolean("auto_renew").notNull().default(true),
+    ...archivable,
+  },
+  (table) => [
+    index("recurring_income_user_idx").on(table.userId),
   ]
 );
 
