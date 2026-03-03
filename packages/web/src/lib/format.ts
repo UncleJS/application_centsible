@@ -57,6 +57,20 @@ export function getToday(): string {
 }
 
 /**
+ * Calculate fractional months remaining until a target date.
+ * Returns null if the date is in the past.
+ */
+export function monthsUntil(dateString: string): number | null {
+  const today = new Date();
+  const target = new Date(dateString);
+  if (target <= today) return null;
+  const years = target.getFullYear() - today.getFullYear();
+  const months = target.getMonth() - today.getMonth();
+  const days = target.getDate() - today.getDate();
+  const fractional = years * 12 + months + days / 30;
+  return fractional > 0 ? fractional : null;
+}
+/**
  * Calculate days until a date
  */
 export function daysUntil(dateString: string): number {

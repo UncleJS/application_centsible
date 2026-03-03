@@ -218,6 +218,7 @@ export default function TransactionsPage() {
       amount: String(parseFloat(form.amount).toFixed(2)),
       type: form.type,
       categoryId: Number(form.categoryId),
+      currency: currency,
       date: form.date,
     };
     setSubmitting(true);

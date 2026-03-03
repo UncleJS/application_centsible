@@ -2,6 +2,7 @@ import { Elysia, t } from "elysia";
 import { jwt } from "@elysiajs/jwt";
 import { db, schema } from "../db";
 import { eq, and, isNull, gt, lte, or, isNotNull } from "drizzle-orm";
+import { SUPPORTED_CURRENCIES } from "@centsible/shared";
 import { hash, verify } from "argon2";
 import {
   DEFAULT_EXPENSE_CATEGORIES,
@@ -363,4 +364,49 @@ export const authRoutes = new Elysia({ prefix: "/auth", detail: { tags: ["Auth"]
   .use(authMiddleware)
   .get("/me", ({ user }) => {
     return { data: { user } };
-  });
+  })
+  // ── Update profile ──
+  .patch(
+    "/me",
+    async ({ user, body, set }) => {
+      const { name, defaultCurrency } = body;
+
+      if (defaultCurrency !== undefined && !(SUPPORTED_CURRENCIES as readonly string[]).includes(defaultCurrency)) {
+        set.status = 400;
+        return { error: "Unsupported currency code" };
+      }
+
+      const updates: Record<string, unknown> = {};
+      if (name !== undefined) updates.name = name.trim();
+      if (defaultCurrency !== undefined) updates.defaultCurrency = defaultCurrency;
+
+      if (Object.keys(updates).length === 0) {
+        set.status = 400;
+        return { error: "No fields to update" };
+      }
+
+      await db
+        .update(schema.users)
+        .set(updates)
+        .where(eq(schema.users.id, user.id));
+
+      const [updated] = await db
+        .select({
+          id: schema.users.id,
+          email: schema.users.email,
+          name: schema.users.name,
+          defaultCurrency: schema.users.defaultCurrency,
+        })
+        .from(schema.users)
+        .where(eq(schema.users.id, user.id))
+        .limit(1);
+
+      return { data: { user: updated } };
+    },
+    {
+      body: t.Object({
+        name: t.Optional(t.String({ minLength: 1, maxLength: 100, error: "Name must be 1–100 characters" })),
+        defaultCurrency: t.Optional(t.String({ minLength: 3, maxLength: 3, error: "Currency must be a 3-letter ISO code" })),
+      }),
+    }
+  );

@@ -191,6 +191,7 @@ interface BudgetDialogProps {
   budgetedCategoryIds: Set<number>;
   year: number;
   month: number;
+  currency: string;
   onSuccess: () => void;
 }
 
@@ -202,6 +203,7 @@ function BudgetDialog({
   budgetedCategoryIds,
   year,
   month,
+  currency,
   onSuccess,
 }: BudgetDialogProps) {
   const [categoryId, setCategoryId] = useState<string>("");
@@ -250,6 +252,7 @@ function BudgetDialog({
           amount: formattedAmount,
           year,
           month,
+          currency,
         });
         toast.success("Budget created.");
       }
@@ -613,6 +616,7 @@ export default function BudgetsPage() {
         budgetedCategoryIds={budgetedCategoryIds}
         year={year}
         month={month}
+        currency={currency}
         onSuccess={fetchBudgets}
       />
     </div>

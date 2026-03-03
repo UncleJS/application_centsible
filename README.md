@@ -50,6 +50,7 @@ bun run dev
 
 | Document | Description |
 |---|---|
+| [docs/user-guide.md](docs/user-guide.md) | End-user guide — every feature, calculation rules, multi-currency behaviour, data lifecycle |
 | [docs/development.md](docs/development.md) | Local setup, monorepo layout, environment variables, database workflow, code conventions |
 | [docs/deployment.md](docs/deployment.md) | Production deployment with Podman + systemd Quadlet, secrets, upgrades, rollback |
 | [docs/api.md](docs/api.md) | Full API reference — every endpoint, query params, request/response shapes, auth model |

@@ -216,24 +216,18 @@ export const reportRoutes = new Elysia({
         )
       );
 
+    // i=0 → current month; i=1 → next month; etc.
     for (let i = 0; i < months; i++) {
-      const forecastDate = new Date(
-        today.getFullYear(),
-        today.getMonth() + i + 1,
-        1
-      );
-      const fYear = forecastDate.getFullYear();
-      const fMonth = forecastDate.getMonth() + 1;
+      const fYear = today.getMonth() + i >= 12
+        ? today.getFullYear() + Math.floor((today.getMonth() + i) / 12)
+        : today.getFullYear();
+      const fMonth = ((today.getMonth() + i) % 12) + 1;
       const items: ForecastItem[] = [];
 
       // Calculate subscription costs for this month
       let subscriptionTotal = 0;
       for (const sub of subs) {
-        const renewals = getSubscriptionRenewalsInMonth(
-          sub,
-          fYear,
-          fMonth
-        );
+        const renewals = getSubscriptionRenewalsInMonth(sub, fYear, fMonth);
         for (const renewal of renewals) {
           const amount = parseFloat(sub.amount);
           subscriptionTotal += amount;
@@ -255,15 +249,17 @@ export const reportRoutes = new Elysia({
           parseFloat(goal.targetAmount) - parseFloat(goal.currentAmount || "0");
         if (remaining <= 0) continue;
 
-        const targetDate = new Date(goal.targetDate);
+        const targetDate = new Date(goal.targetDate + "T00:00:00Z");
         // Calculate months remaining relative to the forecast month, not today
         const monthsRemaining = Math.max(
           1,
-          (targetDate.getFullYear() - fYear) * 12 +
-            (targetDate.getMonth() + 1 - fMonth)
+          (targetDate.getUTCFullYear() - fYear) * 12 +
+            (targetDate.getUTCMonth() + 1 - fMonth)
         );
 
-        if (forecastDate <= targetDate) {
+        const forecastMonthStart = new Date(Date.UTC(fYear, fMonth - 1, 1));
+
+        if (forecastMonthStart <= targetDate) {
           const monthlyContribution = remaining / monthsRemaining;
           savingsTotal += monthlyContribution;
           items.push({
@@ -442,29 +438,38 @@ function getSubscriptionRenewalsInMonth(
   // Guard against non-positive cycle which would cause infinite loop
   if (cycleMonths <= 0) return [];
 
-  // Start from the next renewal date and step forward
-  let current = new Date(sub.nextRenewalDate);
-  const monthStart = new Date(year, month - 1, 1);
-  const monthEnd = new Date(year, month, 0); // last day of month
+  // Build month boundary strings (YYYY-MM-DD) using UTC to avoid timezone drift
+  const monthStartStr = `${year}-${String(month).padStart(2, "0")}-01`;
+  const lastDayUtc = new Date(Date.UTC(year, month, 0)); // day-0 of next month = last day of this month
+  const monthEndStr = lastDayUtc.toISOString().slice(0, 10);
 
-  // Safety limit to prevent runaway loops (max 100 iterations)
+  // Start from the stored next renewal date and step forward in billing cycle increments.
+  // Parse as UTC so date strings stay stable regardless of server timezone.
+  let current = new Date(sub.nextRenewalDate + "T00:00:00Z");
+
+  // Safety limit to prevent runaway loops (max 200 iterations)
   let iterations = 0;
 
-  // Step forward from renewal date in billing cycle increments
-  while (current <= monthEnd && iterations < 100) {
+  while (iterations < 200) {
     iterations++;
-    if (current >= monthStart && current <= monthEnd) {
-      renewals.push(current.toISOString().slice(0, 10));
+    const currentStr = current.toISOString().slice(0, 10);
+
+    // Past the end of the target month — stop
+    if (currentStr > monthEndStr) break;
+
+    // Within the target month — record it
+    if (currentStr >= monthStartStr && currentStr <= monthEndStr) {
+      renewals.push(currentStr);
     }
 
+    // Advance by billing cycle
     if (cycleMonths >= 1) {
-      current = new Date(
-        current.getFullYear(),
-        current.getMonth() + Math.round(cycleMonths),
-        current.getDate()
-      );
+      const nextMonth = current.getUTCMonth() + Math.round(cycleMonths);
+      const nextDay = current.getUTCDate();
+      // Use UTC constructor; JS handles month overflow automatically
+      current = new Date(Date.UTC(current.getUTCFullYear(), nextMonth, nextDay));
     } else {
-      // Weekly / fortnightly
+      // Sub-monthly (weekly / fortnightly)
       const days = Math.round(cycleMonths * 30.44);
       current = new Date(current.getTime() + days * 24 * 60 * 60 * 1000);
     }

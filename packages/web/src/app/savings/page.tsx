@@ -15,7 +15,7 @@ import {
 
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
-import { formatCurrency, formatDate, daysUntil, getToday } from "@/lib/format";
+import { formatCurrency, formatDate, daysUntil, monthsUntil, getToday } from "@/lib/format";
 import { SUPPORTED_CURRENCIES } from "@centsible/shared";
 
 import { Button } from "@/components/ui/button";
@@ -491,6 +491,12 @@ export default function SavingsPage() {
             const target = parseFloat(goal.targetAmount || "1");
             const pct = target > 0 ? (current / target) * 100 : 0;
             const pctDisplay = Math.min(pct, 100).toFixed(1);
+            const remaining = Math.max(target - current, 0);
+            const months = monthsUntil(goal.targetDate);
+            const monthlyNeeded =
+              pct < 100 && months !== null && months > 0
+                ? remaining / months
+                : null;
 
             return (
               <Card key={goal.id} className="bg-zinc-900 border-zinc-800 flex flex-col">
@@ -583,6 +589,22 @@ export default function SavingsPage() {
                     </span>
                     <DaysBadge targetDate={goal.targetDate} />
                   </div>
+
+                  {/* Monthly saving needed */}
+                  {pct >= 100 ? (
+                    <p className="text-xs font-medium text-green-400">
+                      Goal reached!
+                    </p>
+                  ) : monthlyNeeded !== null ? (
+                    <p className="text-xs text-zinc-500">
+                      <span className="text-zinc-300 font-mono font-medium">
+                        {formatCurrency(monthlyNeeded, goal.currency)}
+                      </span>
+                      {" "}/ month needed
+                    </p>
+                  ) : (
+                    <p className="text-xs text-zinc-600">Overdue — no monthly target</p>
+                  )}
                 </CardContent>
               </Card>
             );

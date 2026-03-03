@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/card";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
-import { formatCurrency, daysUntil } from "@/lib/format";
+import { formatCurrency, daysUntil, monthsUntil } from "@/lib/format";
 
 interface MonthlySummary {
   year?: number;
@@ -309,6 +309,29 @@ export default function DashboardPage() {
               </CardHeader>
               <CardContent>
                 <p className="text-xs text-zinc-500">Income minus expenses</p>
+                {savingsGoals.length > 0 && (() => {
+                  const totalSaved = savingsGoals.reduce(
+                    (s, g) => s + parseFloat(g.currentAmount || "0"),
+                    0
+                  );
+                  const totalTarget = savingsGoals.reduce(
+                    (s, g) => s + parseFloat(g.targetAmount || "0"),
+                    0
+                  );
+                  return (
+                    <p className="mt-1 text-xs text-zinc-500">
+                      Saved{" "}
+                      <span className="text-zinc-300 font-mono">
+                        {formatCurrency(totalSaved, currency)}
+                      </span>
+                      {" "}of{" "}
+                      <span className="font-mono">
+                        {formatCurrency(totalTarget, currency)}
+                      </span>
+                      {" "}target
+                    </p>
+                  );
+                })()}
               </CardContent>
             </Card>
 
@@ -484,6 +507,12 @@ export default function DashboardPage() {
                             ? Math.min((current / target) * 100, 100)
                             : 0;
                         const barColor = savingsBarColor(pct);
+                        const remaining = Math.max(target - current, 0);
+                        const months = monthsUntil(goal.targetDate);
+                        const monthlyNeeded =
+                          pct < 100 && months !== null && months > 0
+                            ? remaining / months
+                            : null;
 
                         return (
                           <div key={goal.id}>
@@ -516,6 +545,18 @@ export default function DashboardPage() {
                                 </span>
                               )}
                             </p>
+                            {pct >= 100 ? (
+                              <p className="text-xs font-medium text-green-400">Goal reached!</p>
+                            ) : monthlyNeeded !== null ? (
+                              <p className="text-xs text-zinc-500">
+                                <span className="text-zinc-300 font-mono">
+                                  {formatCurrency(monthlyNeeded, goal.currency)}
+                                </span>
+                                {" "}/mo needed
+                              </p>
+                            ) : daysUntil(goal.targetDate) < 0 ? (
+                              <p className="text-xs text-zinc-600">Overdue</p>
+                            ) : null}
                           </div>
                         );
                       })}

@@ -180,6 +180,13 @@ class ApiClient {
     return this.request<{ data: { user: Omit<User, "createdAt" | "updatedAt"> } }>("/auth/me");
   }
 
+  async updateProfile(body: { name?: string; defaultCurrency?: string }) {
+    return this.request<{ data: { user: Omit<User, "createdAt" | "updatedAt"> } }>("/auth/me", {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    });
+  }
+
   // ── Categories ──
   async getCategories() {
     return this.request<{ data: Category[] }>("/categories");

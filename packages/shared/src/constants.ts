@@ -1,10 +1,10 @@
 // ── Supported currencies ──
 
 export const SUPPORTED_CURRENCIES = [
-  "GBP", "USD", "EUR", "CAD", "AUD", "NZD", "CHF", "JPY",
-  "SEK", "NOK", "DKK", "PLN", "CZK", "HUF", "RON", "BGN",
-  "HRK", "ISK", "TRY", "ZAR", "BRL", "MXN", "SGD", "HKD",
-  "KRW", "INR", "CNY", "THB", "MYR", "PHP", "IDR",
+  "AUD", "BGN", "BRL", "CAD", "CHF", "CNY", "CZK", "DKK",
+  "EUR", "GBP", "HKD", "HRK", "HUF", "IDR", "INR", "ISK",
+  "JPY", "KRW", "MXN", "MYR", "NOK", "NZD", "PHP", "PLN",
+  "RON", "SEK", "SGD", "THB", "TRY", "USD", "ZAR",
 ] as const;
 
 export type SupportedCurrency = (typeof SUPPORTED_CURRENCIES)[number];

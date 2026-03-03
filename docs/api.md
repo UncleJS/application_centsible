@@ -311,6 +311,31 @@ Returns the authenticated user's profile. Requires a valid session.
 
 ---
 
+### `PATCH /auth/me`
+
+Update the authenticated user's profile. All fields are optional; only supplied fields are changed.
+
+Cookie clients must include `X-CSRF-Token`.
+
+**Request body** *(all optional)*
+
+```jsonc
+{
+  "name": "Jane Doe",             // 1–100 characters
+  "defaultCurrency": "EUR"        // ISO 4217 3-char code
+}
+```
+
+**Response `200`** — returns the updated user object (same shape as `GET /auth/me`).
+
+**Errors**
+
+| Status | Condition |
+|---|---|
+| `400` | Validation failure (name too long, unsupported currency code) |
+
+---
+
 ## Categories
 
 All endpoints require authentication.
@@ -1011,6 +1036,22 @@ Forward-looking expense forecast using current budgets, subscriptions, and savin
 Forecast item `type` values: `"subscription"` | `"budget"` | `"savings"`.
 
 Only subscriptions with `autoRenew: true` contribute to forecast costs.
+
+#### Savings contribution calculation
+
+For each forecast month, the savings contribution per goal is calculated as:
+
+```
+monthlyContribution = remainingAmount / monthsRemaining
+```
+
+Where:
+- `remainingAmount` = `targetAmount − currentAmount` (the amount still needed to reach the goal)
+- `monthsRemaining` = months from **the forecast month** to the goal's `targetDate` (minimum 1)
+
+Because `monthsRemaining` shrinks as the forecast advances into the future, the projected monthly contribution **increases over time** — reflecting the reality that the closer a deadline gets, the more needs to be set aside each month to stay on track.
+
+A goal only appears in a forecast month if `forecastMonthStart <= targetDate` (i.e. the goal has not yet passed its deadline). Goals where `currentAmount >= targetAmount` are excluded entirely.
 
 ---
 

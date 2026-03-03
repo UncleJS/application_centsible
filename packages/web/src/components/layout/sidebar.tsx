@@ -12,18 +12,38 @@ import {
   TrendingUp,
   Settings,
   LogOut,
+  Tag,
+  TrendingDown,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
-const navItems = [
+type NavItem =
+  | { href: string; label: string; icon: React.ElementType; children?: never }
+  | {
+      href?: never;
+      label: string;
+      icon: React.ElementType;
+      children: { href: string; label: string; icon: React.ElementType }[];
+    };
+
+const navItems: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/transactions", label: "Transactions", icon: ArrowLeftRight },
   { href: "/budgets", label: "Budgets", icon: PiggyBank },
   { href: "/subscriptions", label: "Subscriptions", icon: CreditCard },
   { href: "/savings", label: "Savings Goals", icon: Target },
+  {
+    label: "Categories",
+    icon: Tag,
+    children: [
+      { href: "/categories/expense", label: "Expense", icon: TrendingDown },
+      { href: "/categories/income", label: "Income", icon: TrendingUp },
+    ],
+  },
   { href: "/reports", label: "Reports", icon: BarChart3 },
   { href: "/forecast", label: "Forecast", icon: TrendingUp },
+  { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 export function Sidebar() {
@@ -43,7 +63,51 @@ export function Sidebar() {
       {/* Navigation */}
       <nav className="flex-1 space-y-1 px-3 py-4">
         {navItems.map((item) => {
-          const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+          if (item.children) {
+            const groupActive = item.children.some(
+              (c) => pathname === c.href || pathname.startsWith(c.href + "/")
+            );
+            return (
+              <div key={item.label}>
+                {/* Group header — not a link */}
+                <div
+                  className={cn(
+                    "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium",
+                    groupActive ? "text-zinc-100" : "text-zinc-400"
+                  )}
+                >
+                  <item.icon className="h-4 w-4" />
+                  {item.label}
+                </div>
+                {/* Sub-items */}
+                <div className="ml-4 space-y-0.5 border-l border-zinc-800 pl-3">
+                  {item.children.map((child) => {
+                    const isActive =
+                      pathname === child.href ||
+                      pathname.startsWith(child.href + "/");
+                    return (
+                      <Link
+                        key={child.href}
+                        href={child.href}
+                        className={cn(
+                          "flex items-center gap-2 rounded-lg px-2 py-2 text-sm font-medium transition-colors",
+                          isActive
+                            ? "bg-zinc-800 text-zinc-100"
+                            : "text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200"
+                        )}
+                      >
+                        <child.icon className="h-3.5 w-3.5" />
+                        {child.label}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          }
+
+          const isActive =
+            pathname === item.href || pathname.startsWith(item.href + "/");
           return (
             <Link
               key={item.href}

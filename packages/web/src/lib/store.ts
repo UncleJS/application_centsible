@@ -16,6 +16,7 @@ interface AuthState {
   register: (email: string, password: string, name: string, defaultCurrency?: string) => Promise<void>;
   logout: () => void;
   hydrate: () => void;
+  updateUser: (partial: Partial<User>) => void;
 }
 
 const STORAGE_KEY = "centsible-user";
@@ -91,6 +92,15 @@ export const useAuthStore = create<AuthState>((set) => {
           clearStorage();
           set({ user: null, isAuthenticated: false, isLoading: false });
         });
+    },
+
+    updateUser: (partial: Partial<User>) => {
+      set((state) => {
+        if (!state.user) return state;
+        const updated = { ...state.user, ...partial };
+        saveToStorage(updated);
+        return { user: updated };
+      });
     },
   };
 });
