@@ -51,6 +51,7 @@ export const budgetRoutes = new Elysia({
           categoryName: schema.categories.name,
           categoryIcon: schema.categories.icon,
           categoryColor: schema.categories.color,
+          categoryType: schema.categories.type,
           year: schema.budgets.year,
           month: schema.budgets.month,
           amount: schema.budgets.amount,
@@ -69,7 +70,6 @@ export const budgetRoutes = new Elysia({
           and(
             eq(schema.transactions.userId, user.id),
             eq(schema.transactions.categoryId, schema.budgets.categoryId),
-            eq(schema.transactions.type, "expense"),
             isNull(schema.transactions.archivedAt),
             gte(schema.transactions.date, startDate),
             lt(schema.transactions.date, endDate)
@@ -90,6 +90,7 @@ export const budgetRoutes = new Elysia({
           schema.categories.name,
           schema.categories.icon,
           schema.categories.color,
+          schema.categories.type,
           schema.budgets.year,
           schema.budgets.month,
           schema.budgets.amount,
@@ -181,6 +182,17 @@ export const budgetRoutes = new Elysia({
         return { error: "Budget not found" };
       }
 
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth() + 1;
+      if (
+        existing.year < currentYear ||
+        (existing.year === currentYear && existing.month < currentMonth)
+      ) {
+        set.status = 403;
+        return { error: "Cannot edit budgets for past months" };
+      }
+
       await db
         .update(schema.budgets)
         .set({ amount: body.amount })
@@ -218,6 +230,17 @@ export const budgetRoutes = new Elysia({
     if (!existing) {
       set.status = 404;
       return { error: "Budget not found" };
+    }
+
+    const nowDel = new Date();
+    const currentYearDel = nowDel.getFullYear();
+    const currentMonthDel = nowDel.getMonth() + 1;
+    if (
+      existing.year < currentYearDel ||
+      (existing.year === currentYearDel && existing.month < currentMonthDel)
+    ) {
+      set.status = 403;
+      return { error: "Cannot edit budgets for past months" };
     }
 
     await db

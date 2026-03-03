@@ -48,6 +48,7 @@ interface Budget {
   id: number;
   categoryId: number;
   categoryName?: string | null;
+  categoryType?: string | null;
   amount: string;
   spent?: string;
   year: number;
@@ -106,7 +107,7 @@ function BudgetCardSkeleton() {
 function SummarySkeleton() {
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 animate-pulse">
-      {[0, 1, 2, 3, 4, 5].map((i) => (
+      {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
         <div
           key={i}
           className="rounded-xl border border-zinc-800 bg-zinc-900 p-6 flex flex-col gap-3"
@@ -115,6 +116,11 @@ function SummarySkeleton() {
           <div className="h-7 w-32 rounded bg-zinc-800" />
         </div>
       ))}
+      {/* Projected Balance skeleton — full width */}
+      <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6 flex flex-col gap-3 lg:col-span-3">
+        <div className="h-3 w-32 rounded bg-zinc-800" />
+        <div className="h-9 w-48 rounded bg-zinc-800" />
+      </div>
     </div>
   );
 }
@@ -125,6 +131,8 @@ interface BudgetCardProps {
   onEdit: (budget: Budget) => void;
   onDelete: (id: number) => void;
   isDeleting: boolean;
+  isPastMonth: boolean;
+  isIncome: boolean;
 }
 
 function BudgetCard({
@@ -133,13 +141,27 @@ function BudgetCard({
   onEdit,
   onDelete,
   isDeleting,
+  isPastMonth,
+  isIncome,
 }: BudgetCardProps) {
   const amount = parseFloat(budget.amount);
-  const spent = parseFloat(budget.spent ?? "0");
-  const pct = amount > 0 ? Math.min(Math.round((spent / amount) * 100), 100) : 0;
-  const barColor = getProgressColor(pct);
-  const pctColor =
-    pct >= 90 ? "text-red-400" : pct >= 75 ? "text-amber-400" : "text-emerald-400";
+  const actual = parseFloat(budget.spent ?? "0");
+  const pct = amount > 0 ? Math.min(Math.round((actual / amount) * 100), 100) : 0;
+
+  // For income: green is always good (received >= budgeted is ideal).
+  // For expense: red when near/over limit.
+  const barColor = isIncome
+    ? "bg-emerald-500"
+    : getProgressColor(pct);
+  const pctColor = isIncome
+    ? "text-emerald-400"
+    : pct >= 90
+    ? "text-red-400"
+    : pct >= 75
+    ? "text-amber-400"
+    : "text-emerald-400";
+
+  const spentLabel = isIncome ? "Received" : "Spent";
 
   return (
     <Card className="bg-zinc-900 border-zinc-800">
@@ -148,15 +170,17 @@ function BudgetCard({
           {budget.categoryName ?? "Unknown"}
         </CardTitle>
         <CardDescription className="text-xs text-zinc-500 font-mono">
-          {pct}% used
+          {pct}% {isIncome ? "received" : "used"}
         </CardDescription>
         <CardAction>
           <div className="flex items-center gap-1">
             <Button
               variant="ghost"
               size="icon-sm"
-              className="text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800"
+              className="text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 disabled:opacity-30"
               onClick={() => onEdit(budget)}
+              disabled={isPastMonth}
+              title={isPastMonth ? "Past months are read-only" : undefined}
               aria-label={`Edit budget for ${budget.categoryName ?? "Unknown"}`}
             >
               <Pencil className="size-3.5" />
@@ -164,9 +188,10 @@ function BudgetCard({
             <Button
               variant="ghost"
               size="icon-sm"
-              className="text-zinc-400 hover:text-red-400 hover:bg-zinc-800"
+              className="text-zinc-400 hover:text-red-400 hover:bg-zinc-800 disabled:opacity-30"
               onClick={() => onDelete(budget.id)}
-              disabled={isDeleting}
+              disabled={isDeleting || isPastMonth}
+              title={isPastMonth ? "Past months are read-only" : undefined}
               aria-label={`Delete budget for ${budget.categoryName ?? "Unknown"}`}
             >
               {isDeleting ? (
@@ -189,6 +214,7 @@ function BudgetCard({
 
         <div className="flex items-center justify-between">
           <span className="text-sm font-mono text-zinc-300">
+            <span className="text-xs text-zinc-600 mr-1">{spentLabel}</span>
             {formatCurrency(budget.spent ?? "0", currency)}{" "}
             <span className="text-zinc-600">/</span>{" "}
             {formatCurrency(budget.amount, currency)}
@@ -206,7 +232,7 @@ interface BudgetDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   editingBudget: Budget | null;
-  expenseCategories: Category[];
+  allCategories: Category[];
   budgetedCategoryIds: Set<number>;
   year: number;
   month: number;
@@ -218,7 +244,7 @@ function BudgetDialog({
   open,
   onOpenChange,
   editingBudget,
-  expenseCategories,
+  allCategories,
   budgetedCategoryIds,
   year,
   month,
@@ -227,6 +253,7 @@ function BudgetDialog({
 }: BudgetDialogProps) {
   const [categoryId, setCategoryId] = useState<string>("");
   const [amount, setAmount] = useState<string>("");
+  const [selectedType, setSelectedType] = useState<"expense" | "income">("expense");
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -234,18 +261,25 @@ function BudgetDialog({
       if (editingBudget) {
         setCategoryId(String(editingBudget.categoryId));
         setAmount(editingBudget.amount);
+        setSelectedType(
+          editingBudget.categoryType === "income" ? "income" : "expense"
+        );
       } else {
         setCategoryId("");
         setAmount("");
+        setSelectedType("expense");
       }
     }
   }, [open, editingBudget]);
 
   const isEditing = !!editingBudget;
 
+  // Filter categories by selected type, excluding already-budgeted ones (except the one being edited)
   const availableCategories = isEditing
-    ? expenseCategories.filter((c) => c.id === editingBudget!.categoryId)
-    : expenseCategories.filter((c) => !budgetedCategoryIds.has(c.id));
+    ? allCategories.filter((c) => c.id === editingBudget!.categoryId)
+    : allCategories.filter(
+        (c) => c.type === selectedType && !budgetedCategoryIds.has(c.id)
+      );
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -296,6 +330,37 @@ function BudgetDialog({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+          {/* Type selector — only shown when creating */}
+          {!isEditing && (
+            <div className="flex flex-col gap-2">
+              <Label className="text-zinc-300">Type</Label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => { setSelectedType("expense"); setCategoryId(""); }}
+                  className={`flex-1 rounded-md border py-1.5 text-sm font-medium transition-colors ${
+                    selectedType === "expense"
+                      ? "border-emerald-600 bg-emerald-600/20 text-emerald-300"
+                      : "border-zinc-700 bg-zinc-800/50 text-zinc-400 hover:border-zinc-600"
+                  }`}
+                >
+                  Expense
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setSelectedType("income"); setCategoryId(""); }}
+                  className={`flex-1 rounded-md border py-1.5 text-sm font-medium transition-colors ${
+                    selectedType === "income"
+                      ? "border-blue-600 bg-blue-600/20 text-blue-300"
+                      : "border-zinc-700 bg-zinc-800/50 text-zinc-400 hover:border-zinc-600"
+                  }`}
+                >
+                  Income
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="flex flex-col gap-2">
             <Label htmlFor="budget-category" className="text-zinc-300">
               Category
@@ -315,7 +380,7 @@ function BudgetDialog({
                 <SelectContent className="bg-zinc-900 border-zinc-700 text-zinc-100">
                   {availableCategories.length === 0 ? (
                     <div className="px-2 py-3 text-sm text-zinc-500 text-center">
-                      All expense categories are already budgeted.
+                      All {selectedType} categories are already budgeted.
                     </div>
                   ) : (
                     availableCategories.map((cat) => (
@@ -335,7 +400,9 @@ function BudgetDialog({
 
           <div className="flex flex-col gap-2">
             <Label htmlFor="budget-amount" className="text-zinc-300">
-              Budget Amount
+              {isEditing && editingBudget?.categoryType === "income"
+                ? "Target Income"
+                : "Budget Amount"}
             </Label>
             <Input
               id="budget-amount"
@@ -416,9 +483,7 @@ export default function BudgetsPage() {
   const fetchCategories = useCallback(async () => {
     try {
       const res = await api.getCategories();
-      setCategories(
-        (res.data ?? []).filter((c: Category) => c.type === "expense")
-      );
+      setCategories(res.data ?? []);
     } catch {
       // non-critical
     }
@@ -496,15 +561,31 @@ export default function BudgetsPage() {
     setDialogOpen(true);
   }
 
-  const totalBudgeted = budgets.reduce(
+  // Split budgets by category type
+  const expenseBudgets = budgets.filter((b) => b.categoryType !== "income");
+  const incomeBudgets = budgets.filter((b) => b.categoryType === "income");
+
+  // Expense totals
+  const totalBudgetedExpenses = expenseBudgets.reduce(
     (sum, b) => sum + parseFloat(b.amount),
     0
   );
-  const totalSpent = budgets.reduce(
+  const totalSpentExpenses = expenseBudgets.reduce(
     (sum, b) => sum + parseFloat(b.spent ?? "0"),
     0
   );
-  const totalRemaining = totalBudgeted - totalSpent;
+  const totalRemainingExpenses = totalBudgetedExpenses - totalSpentExpenses;
+
+  // Income totals
+  const totalBudgetedIncome = incomeBudgets.reduce(
+    (sum, b) => sum + parseFloat(b.amount),
+    0
+  );
+  const totalReceivedIncome = incomeBudgets.reduce(
+    (sum, b) => sum + parseFloat(b.spent ?? "0"),
+    0
+  );
+  const totalIncomeSurplus = totalReceivedIncome - totalBudgetedIncome;
 
   // Total monthly subscription cost — each subscription converted to userCurrency.
   // Rates are fetched with base=userCurrency so rates[subCurrency] = "units of subCurrency
@@ -551,8 +632,9 @@ export default function BudgetsPage() {
     }, 0);
   }, [savingsGoals, year, month]);
 
-  // Grand total monthly commitment: budgets + subscriptions + savings
-  const totalMonthlyCommitted = totalBudgeted + totalMonthlySubscriptions + totalMonthlySavings;
+  // Grand total monthly commitment: expense budgets + subscriptions + savings
+  // Income budgets are not a "commitment" — they are expected inflows
+  const totalMonthlyCommitted = totalBudgetedExpenses + totalMonthlySubscriptions + totalMonthlySavings;
 
   // Rates are considered pending if the store hasn't loaded yet and there are
   // foreign-currency subscriptions whose conversion would otherwise be 1:1.
@@ -561,6 +643,12 @@ export default function BudgetsPage() {
     subscriptions.some((s) => s.currency !== currency);
 
   const budgetedCategoryIds = new Set(budgets.map((b) => b.categoryId));
+
+  // Past month: year/month is before today's year/month
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1;
+  const isPastMonth =
+    year < currentYear || (year === currentYear && month < currentMonth);
 
   return (
     <div className="flex flex-col gap-8">
@@ -612,19 +700,19 @@ export default function BudgetsPage() {
         </Button>
       </div>
 
-      {/* Summary Row */}
+      {/* Summary Grid */}
       {loading ? (
         <SummarySkeleton />
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {/* ── Existing 3 ── */}
+          {/* ── Row 1: Expense budgets ── */}
           <Card className="bg-zinc-900 border-zinc-800">
             <CardContent className="flex flex-col gap-1 pt-6">
               <p className="text-xs uppercase tracking-widest font-medium text-zinc-500">
-                Total Budgeted
+                Budgeted Expenses
               </p>
               <p className="text-2xl font-bold font-mono text-zinc-100">
-                {formatCurrency(totalBudgeted, currency)}
+                {formatCurrency(totalBudgetedExpenses, currency)}
               </p>
             </CardContent>
           </Card>
@@ -636,10 +724,10 @@ export default function BudgetsPage() {
               </p>
               <p
                 className={`text-2xl font-bold font-mono ${
-                  totalSpent > totalBudgeted ? "text-red-400" : "text-zinc-100"
+                  totalSpentExpenses > totalBudgetedExpenses ? "text-red-400" : "text-zinc-100"
                 }`}
               >
-                {formatCurrency(totalSpent, currency)}
+                {formatCurrency(totalSpentExpenses, currency)}
               </p>
             </CardContent>
           </Card>
@@ -651,15 +739,53 @@ export default function BudgetsPage() {
               </p>
               <p
                 className={`text-2xl font-bold font-mono ${
-                  totalRemaining < 0 ? "text-red-400" : "text-emerald-400"
+                  totalRemainingExpenses < 0 ? "text-red-400" : "text-emerald-400"
                 }`}
               >
-                {formatCurrency(totalRemaining, currency)}
+                {formatCurrency(totalRemainingExpenses, currency)}
               </p>
             </CardContent>
           </Card>
 
-          {/* ── 3 new cards ── */}
+          {/* ── Row 2: Income budgets ── */}
+          <Card className="bg-zinc-900 border-zinc-800">
+            <CardContent className="flex flex-col gap-1 pt-6">
+              <p className="text-xs uppercase tracking-widest font-medium text-zinc-500">
+                Budgeted Income
+              </p>
+              <p className="text-2xl font-bold font-mono text-zinc-100">
+                {formatCurrency(totalBudgetedIncome, currency)}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-zinc-900 border-zinc-800">
+            <CardContent className="flex flex-col gap-1 pt-6">
+              <p className="text-xs uppercase tracking-widest font-medium text-zinc-500">
+                Total Received
+              </p>
+              <p className="text-2xl font-bold font-mono text-zinc-100">
+                {formatCurrency(totalReceivedIncome, currency)}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-zinc-900 border-zinc-800">
+            <CardContent className="flex flex-col gap-1 pt-6">
+              <p className="text-xs uppercase tracking-widest font-medium text-zinc-500">
+                Income Surplus
+              </p>
+              <p
+                className={`text-2xl font-bold font-mono ${
+                  totalIncomeSurplus >= 0 ? "text-emerald-400" : "text-red-400"
+                }`}
+              >
+                {formatCurrency(totalIncomeSurplus, currency)}
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* ── Row 3: Commitments ── */}
           <Card className="bg-zinc-900 border-zinc-800">
             <CardContent className="flex flex-col gap-1 pt-6">
               <div className="flex items-center gap-2 mb-0.5">
@@ -722,7 +848,43 @@ export default function BudgetsPage() {
                     {formatCurrency(totalMonthlyCommitted, currency)}
                   </p>
                   <p className="text-xs text-zinc-600">
-                    budgets + subscriptions + savings
+                    expense budgets + subscriptions + savings
+                  </p>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* ── Row 4: Projected Balance (full-width) ── */}
+          <Card
+            className={`bg-zinc-900 border-zinc-800 lg:col-span-3 ${
+              ratesPending ? "" : totalBudgetedIncome - totalMonthlyCommitted >= 0
+                ? "border-emerald-800/50"
+                : "border-red-800/50"
+            }`}
+          >
+            <CardContent className="flex flex-col gap-1 pt-6">
+              <p className="text-xs uppercase tracking-widest font-medium text-zinc-500">
+                Projected Balance
+              </p>
+              {ratesPending ? (
+                <>
+                  <p className="text-2xl font-bold font-mono text-zinc-500">—</p>
+                  <p className="text-xs text-zinc-600">loading exchange rates…</p>
+                </>
+              ) : (
+                <>
+                  <p
+                    className={`text-3xl font-bold font-mono ${
+                      totalBudgetedIncome - totalMonthlyCommitted >= 0
+                        ? "text-emerald-400"
+                        : "text-red-400"
+                    }`}
+                  >
+                    {formatCurrency(totalBudgetedIncome - totalMonthlyCommitted, currency)}
+                  </p>
+                  <p className="text-xs text-zinc-600">
+                    budgeted income − committed (expense budgets + subscriptions + savings)
                   </p>
                 </>
               )}
@@ -758,17 +920,52 @@ export default function BudgetsPage() {
           </Button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {budgets.map((budget) => (
-            <BudgetCard
-              key={budget.id}
-              budget={budget}
-              currency={currency}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-              isDeleting={deletingId === budget.id}
-            />
-          ))}
+        <div className="flex flex-col gap-8">
+          {/* Income Budgets section */}
+          {incomeBudgets.length > 0 && (
+            <div className="flex flex-col gap-3">
+              <h2 className="text-sm font-semibold uppercase tracking-widest text-zinc-500">
+                Income Budgets
+              </h2>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {incomeBudgets.map((budget) => (
+                  <BudgetCard
+                    key={budget.id}
+                    budget={budget}
+                    currency={currency}
+                    onEdit={handleEdit}
+                    onDelete={handleDelete}
+                    isDeleting={deletingId === budget.id}
+                    isPastMonth={isPastMonth}
+                    isIncome
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Expense Budgets section */}
+          {expenseBudgets.length > 0 && (
+            <div className="flex flex-col gap-3">
+              <h2 className="text-sm font-semibold uppercase tracking-widest text-zinc-500">
+                Expense Budgets
+              </h2>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {expenseBudgets.map((budget) => (
+                  <BudgetCard
+                    key={budget.id}
+                    budget={budget}
+                    currency={currency}
+                    onEdit={handleEdit}
+                    onDelete={handleDelete}
+                    isDeleting={deletingId === budget.id}
+                    isPastMonth={isPastMonth}
+                    isIncome={false}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -780,7 +977,7 @@ export default function BudgetsPage() {
           if (!open) setEditingBudget(null);
         }}
         editingBudget={editingBudget}
-        expenseCategories={categories}
+        allCategories={categories}
         budgetedCategoryIds={budgetedCategoryIds}
         year={year}
         month={month}
