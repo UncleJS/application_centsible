@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { api } from "@/lib/api";
-import { useAuthStore } from "@/lib/store";
+import { useAuthStore, useExchangeRateStore } from "@/lib/store";
 import { formatCurrency, getMonthName } from "@/lib/format";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -383,6 +383,7 @@ function BudgetDialog({
 export default function BudgetsPage() {
   const { user } = useAuthStore();
   const currency = user?.defaultCurrency ?? "GBP";
+  const { rates: exchangeRates, fetchRates } = useExchangeRateStore();
 
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
@@ -392,7 +393,6 @@ export default function BudgetsPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>([]);
-  const [exchangeRates, setExchangeRates] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
@@ -442,15 +442,6 @@ export default function BudgetsPage() {
     }
   }, []);
 
-  const fetchExchangeRates = useCallback(async () => {
-    try {
-      const res = await api.getLatestRates(currency);
-      setExchangeRates(res.data?.rates ?? {});
-    } catch {
-      // non-critical — falls back to 1:1 for all currencies
-    }
-  }, [currency]);
-
   useEffect(() => {
     fetchBudgets();
   }, [fetchBudgets]);
@@ -459,8 +450,8 @@ export default function BudgetsPage() {
     fetchCategories();
     fetchSubscriptions();
     fetchSavingsGoals();
-    fetchExchangeRates();
-  }, [fetchCategories, fetchSubscriptions, fetchSavingsGoals, fetchExchangeRates]);
+    fetchRates(currency);
+  }, [fetchCategories, fetchSubscriptions, fetchSavingsGoals, fetchRates, currency]);
 
   function prevMonth() {
     if (month === 1) {

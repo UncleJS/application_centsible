@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { api, isSafeUrl } from "@/lib/api";
-import { useAuthStore } from "@/lib/store";
+import { useAuthStore, useExchangeRateStore } from "@/lib/store";
 import { formatCurrency, formatDate, daysUntil, getToday } from "@/lib/format";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -646,10 +646,10 @@ function DeleteDialog({
 export default function SubscriptionsPage() {
   const { user } = useAuthStore();
   const userCurrency = user?.defaultCurrency ?? "GBP";
+  const { rates: exchangeRates, fetchRates } = useExchangeRateStore();
 
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [exchangeRates, setExchangeRates] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
 
@@ -680,23 +680,14 @@ export default function SubscriptionsPage() {
     }
   }, []);
 
-  const fetchExchangeRates = useCallback(async () => {
-    try {
-      const res = await api.getLatestRates(userCurrency);
-      setExchangeRates(res.data?.rates ?? {});
-    } catch {
-      // non-critical — falls back to 1:1 for all currencies
-    }
-  }, [userCurrency]);
-
   useEffect(() => {
     fetchSubscriptions();
   }, [fetchSubscriptions]);
 
   useEffect(() => {
     fetchCategories();
-    fetchExchangeRates();
-  }, [fetchCategories, fetchExchangeRates]);
+    fetchRates(userCurrency);
+  }, [fetchCategories, fetchRates, userCurrency]);
 
   function handleCreate() {
     setEditingSub(null);
