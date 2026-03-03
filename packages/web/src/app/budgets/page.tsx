@@ -524,13 +524,10 @@ export default function BudgetsPage() {
     [subscriptions, exchangeRates, currency]
   );
 
-  // Total monthly savings needed — uses the same whole-calendar-month formula
-  // as the forecast API (reports.ts): (targetYear - nowYear)*12 + (targetMonth - nowMonth).
-  // We snapshot `now` once so every goal uses the same instant.
+  // Total monthly savings needed — mirrors the forecast API formula exactly:
+  // monthsRemaining = (targetYear - fYear) * 12 + (targetMonth - fMonth)
+  // where fYear/fMonth is the DISPLAYED budget month (not today).
   const totalMonthlySavings = useMemo(() => {
-    const now = new Date();
-    const nowYear = now.getFullYear();
-    const nowMonth = now.getMonth() + 1; // 1-based
     return savingsGoals.reduce((sum, goal) => {
       if (goal.archivedAt) return sum;
       const current = parseFloat(goal.currentAmount || "0");
@@ -540,17 +537,19 @@ export default function BudgetsPage() {
       const targetDate = new Date(goal.targetDate + "T00:00:00Z");
       const targetYear = targetDate.getUTCFullYear();
       const targetMonth = targetDate.getUTCMonth() + 1; // 1-based
+
+      // Use displayed month as the reference point, same as forecast API
       const monthsRemaining = Math.max(
         1,
-        (targetYear - nowYear) * 12 + (targetMonth - nowMonth)
+        (targetYear - year) * 12 + (targetMonth - month)
       );
 
-      // Skip goals whose target date is already past
-      if ((targetYear - nowYear) * 12 + (targetMonth - nowMonth) <= 0) return sum;
+      // Skip goals whose target date is before or in the displayed month
+      if ((targetYear - year) * 12 + (targetMonth - month) <= 0) return sum;
 
       return sum + (target - current) / monthsRemaining;
     }, 0);
-  }, [savingsGoals]);
+  }, [savingsGoals, year, month]);
 
   // Grand total monthly commitment: budgets + subscriptions + savings
   const totalMonthlyCommitted = totalBudgeted + totalMonthlySubscriptions + totalMonthlySavings;
