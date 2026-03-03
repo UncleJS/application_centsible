@@ -48,6 +48,7 @@ import {
   Loader2,
   ArrowUpRight,
   ArrowDownLeft,
+  Repeat2,
 } from "lucide-react";
 
 const PAGE_SIZE = 20;
@@ -59,6 +60,7 @@ interface Transaction {
   type: "income" | "expense";
   categoryId: number;
   date: string;
+  isRecurring: boolean;
   category?: {
     id: number;
     name: string;
@@ -80,6 +82,7 @@ interface FormState {
   type: "income" | "expense";
   categoryId: string;
   date: string;
+  isRecurring: boolean;
 }
 
 const EMPTY_FORM: FormState = {
@@ -88,6 +91,7 @@ const EMPTY_FORM: FormState = {
   type: "expense",
   categoryId: "",
   date: getToday(),
+  isRecurring: false,
 };
 
 export default function TransactionsPage() {
@@ -189,6 +193,7 @@ export default function TransactionsPage() {
       type: tx.type,
       categoryId: String(tx.categoryId),
       date: formatDate(tx.date),
+      isRecurring: tx.isRecurring,
     });
     setDialogOpen(true);
   };
@@ -220,6 +225,7 @@ export default function TransactionsPage() {
       categoryId: Number(form.categoryId),
       currency: currency,
       date: form.date,
+      isRecurring: form.isRecurring,
     };
     setSubmitting(true);
     try {
@@ -419,6 +425,32 @@ export default function TransactionsPage() {
                 onChange={(v) => setForm((p) => ({ ...p, date: v }))}
                 required
               />
+
+              {/* Recurring toggle */}
+              <div className="flex items-center justify-between rounded-lg border border-zinc-800 bg-zinc-800/30 px-4 py-3">
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-sm font-medium text-zinc-300 flex items-center gap-1.5">
+                    <Repeat2 className="size-3.5 text-zinc-500" />
+                    Recurring
+                  </span>
+                  <span className="text-xs text-zinc-500">Mark as a recurring transaction</span>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={form.isRecurring}
+                  onClick={() => setForm((p) => ({ ...p, isRecurring: !p.isRecurring }))}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900 ${
+                    form.isRecurring ? "bg-emerald-600" : "bg-zinc-700"
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-lg ring-0 transition-transform ${
+                      form.isRecurring ? "translate-x-5" : "translate-x-0"
+                    }`}
+                  />
+                </button>
+              </div>
 
               <DialogFooter className="pt-2">
                 <Button
@@ -623,8 +655,16 @@ export default function TransactionsPage() {
                         {formatDate(tx.date)}
                       </TableCell>
 
-                      <TableCell className="text-zinc-100 max-w-[200px] truncate">
-                        <span title={tx.description}>{tx.description}</span>
+                      <TableCell className="text-zinc-100 max-w-[200px]">
+                        <span className="flex items-center gap-1.5 truncate" title={tx.description}>
+                          <span className="truncate">{tx.description}</span>
+                          {tx.isRecurring && (
+                            <Repeat2
+                              className="size-3.5 shrink-0 text-blue-400"
+                              aria-label="Recurring transaction"
+                            />
+                          )}
+                        </span>
                       </TableCell>
 
                       <TableCell className="text-zinc-300">

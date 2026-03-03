@@ -295,8 +295,9 @@ class ApiClient {
   }
 
   // ── Subscriptions ──
-  async getSubscriptions() {
-    return this.request<{ data: Subscription[] }>("/subscriptions");
+  async getSubscriptions(params?: { type?: "income" | "expense" }) {
+    const query = params?.type ? `?type=${params.type}` : "";
+    return this.request<{ data: Subscription[] }>(`/subscriptions${query}`);
   }
 
   async getUpcomingSubscriptions(days?: number) {

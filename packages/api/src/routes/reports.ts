@@ -170,7 +170,7 @@ export const reportRoutes = new Elysia({
     const today = new Date();
     const forecast: ForecastMonth[] = [];
 
-    // Get active subscriptions
+    // Get active subscriptions (both expense and income types)
     const subs = await db
       .select()
       .from(schema.subscriptions)
@@ -180,6 +180,10 @@ export const reportRoutes = new Elysia({
           isNull(schema.subscriptions.archivedAt)
         )
       );
+
+    // Split into expense subscriptions and recurring income subscriptions
+    const expenseSubs = subs.filter((s) => s.type !== "income");
+    const incomeSubs = subs.filter((s) => s.type === "income");
 
     // Get active savings goals
     const goals = await db
@@ -224,9 +228,9 @@ export const reportRoutes = new Elysia({
       const fMonth = ((today.getMonth() + i) % 12) + 1;
       const items: ForecastItem[] = [];
 
-      // Calculate subscription costs for this month
+      // Calculate subscription costs for this month (expense subscriptions)
       let subscriptionTotal = 0;
-      for (const sub of subs) {
+      for (const sub of expenseSubs) {
         const renewals = getSubscriptionRenewalsInMonth(sub, fYear, fMonth);
         for (const renewal of renewals) {
           const amount = parseFloat(sub.amount);
@@ -237,6 +241,24 @@ export const reportRoutes = new Elysia({
             currency: sub.currency,
             date: renewal,
             type: "subscription",
+            sourceId: sub.id,
+          });
+        }
+      }
+
+      // Calculate recurring income for this month (income subscriptions)
+      let recurringIncomeTotal = 0;
+      for (const sub of incomeSubs) {
+        const renewals = getSubscriptionRenewalsInMonth(sub, fYear, fMonth);
+        for (const renewal of renewals) {
+          const amount = parseFloat(sub.amount);
+          recurringIncomeTotal += amount;
+          items.push({
+            name: sub.name,
+            amount: sub.amount,
+            currency: sub.currency,
+            date: renewal,
+            type: "recurring-income",
             sourceId: sub.id,
           });
         }
@@ -293,7 +315,9 @@ export const reportRoutes = new Elysia({
         year: fYear,
         month: fMonth,
         projectedExpenses: budgetTotal.toFixed(2),
+        projectedIncome: recurringIncomeTotal.toFixed(2),
         subscriptionCosts: subscriptionTotal.toFixed(2),
+        recurringIncomeSources: recurringIncomeTotal.toFixed(2),
         savingsContributions: savingsTotal.toFixed(2),
         totalProjected: totalProjected.toFixed(2),
         items: items.sort(

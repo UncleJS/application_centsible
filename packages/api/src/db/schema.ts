@@ -112,6 +112,7 @@ export const transactions = mysqlTable(
     subscriptionId: int("subscription_id").references(() => subscriptions.id, {
       onDelete: "set null",
     }),
+    isRecurring: boolean("is_recurring").notNull().default(false),
     ...archivable,
   },
   (table) => [
@@ -211,6 +212,7 @@ export const subscriptions = mysqlTable(
     categoryId: int("category_id").references(() => categories.id, {
       onDelete: "set null",
     }),
+    type: varchar("type", { length: 10 }).notNull().default("expense"), // 'income' | 'expense'
     name: varchar("name", { length: 100 }).notNull(),
     description: text("description"),
     amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),

@@ -47,7 +47,7 @@ interface ForecastItem {
   amount: string;
   currency: string;
   date: string;
-  type: "subscription" | "recurring" | "savings" | "budget";
+  type: "subscription" | "recurring" | "savings" | "budget" | "recurring-income";
   sourceId: number;
 }
 
@@ -55,7 +55,9 @@ interface ForecastMonth {
   year: number;
   month: number;
   projectedExpenses: string;
+  projectedIncome: string;
   subscriptionCosts: string;
+  recurringIncomeSources: string;
   savingsContributions: string;
   totalProjected: string;
   items: ForecastItem[];
@@ -82,6 +84,11 @@ const TYPE_BADGE: Record<
   },
   budget: {
     label: "Budget",
+    className:
+      "bg-emerald-950 text-emerald-400 border border-emerald-800 hover:bg-emerald-950",
+  },
+  "recurring-income": {
+    label: "Recurring Income",
     className:
       "bg-emerald-950 text-emerald-400 border border-emerald-800 hover:bg-emerald-950",
   },

@@ -41,6 +41,7 @@ export interface Transaction {
   description: string;
   date: string; // YYYY-MM-DD
   subscriptionId: number | null;
+  isRecurring: boolean;
   createdAt: string;
   updatedAt: string;
   archivedAt: string | null;
@@ -89,6 +90,7 @@ export interface Subscription {
   id: number;
   userId: number;
   categoryId: number | null;
+  type: TransactionType; // 'income' | 'expense'
   name: string;
   description: string | null;
   amount: string;
@@ -164,7 +166,9 @@ export interface ForecastMonth {
   year: number;
   month: number;
   projectedExpenses: string;
+  projectedIncome: string;
   subscriptionCosts: string;
+  recurringIncomeSources: string;
   savingsContributions: string;
   totalProjected: string;
   items: ForecastItem[];
@@ -175,6 +179,6 @@ export interface ForecastItem {
   amount: string;
   currency: string;
   date: string;
-  type: "subscription" | "recurring" | "savings" | "budget";
+  type: "subscription" | "recurring-income" | "recurring" | "savings" | "budget";
   sourceId: number;
 }

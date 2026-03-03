@@ -21,6 +21,7 @@ export const subscriptionRoutes = new Elysia({
         categoryId: schema.subscriptions.categoryId,
         categoryName: schema.categories.name,
         categoryIcon: schema.categories.icon,
+        type: schema.subscriptions.type,
         name: schema.subscriptions.name,
         description: schema.subscriptions.description,
         amount: schema.subscriptions.amount,
@@ -60,6 +61,7 @@ export const subscriptionRoutes = new Elysia({
       .select({
         id: schema.subscriptions.id,
         name: schema.subscriptions.name,
+        type: schema.subscriptions.type,
         amount: schema.subscriptions.amount,
         currency: schema.subscriptions.currency,
         billingCycle: schema.subscriptions.billingCycle,
@@ -112,6 +114,7 @@ export const subscriptionRoutes = new Elysia({
         .values({
           name: body.name,
           description: body.description ?? null,
+          type: body.type ?? "expense",
           amount: body.amount,
           currency: body.currency,
           billingCycle: body.billingCycle,
@@ -135,6 +138,7 @@ export const subscriptionRoutes = new Elysia({
     {
       body: t.Object({
         categoryId: t.Optional(t.Nullable(t.Integer({ minimum: 1 }))),
+        type: t.Optional(t.Union([t.Literal("income"), t.Literal("expense")])),
         name: t.String({ minLength: 1, maxLength: 100 }),
         description: t.Optional(t.Nullable(t.String({ maxLength: 500 }))),
         amount: t.String({ pattern: amountPattern, error: "Amount must be a valid decimal" }),
@@ -218,6 +222,7 @@ export const subscriptionRoutes = new Elysia({
       params: t.Object({ id: t.String() }),
       body: t.Object({
         categoryId: t.Optional(t.Nullable(t.Integer({ minimum: 1 }))),
+        type: t.Optional(t.Union([t.Literal("income"), t.Literal("expense")])),
         name: t.Optional(t.String({ minLength: 1, maxLength: 100 })),
         description: t.Optional(t.Nullable(t.String({ maxLength: 500 }))),
         amount: t.Optional(t.String({ pattern: amountPattern })),

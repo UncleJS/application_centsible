@@ -85,6 +85,7 @@ export const transactionRoutes = new Elysia({
           description: schema.transactions.description,
           date: schema.transactions.date,
           subscriptionId: schema.transactions.subscriptionId,
+          isRecurring: schema.transactions.isRecurring,
           createdAt: schema.transactions.createdAt,
           updatedAt: schema.transactions.updatedAt,
         })
@@ -145,6 +146,7 @@ export const transactionRoutes = new Elysia({
           date: body.date,
           userId: user.id,
           subscriptionId: body.subscriptionId ?? null,
+          isRecurring: body.isRecurring ?? (body.subscriptionId ? true : false),
         })
         .$returningId();
 
@@ -165,6 +167,7 @@ export const transactionRoutes = new Elysia({
         description: t.Optional(t.String({ maxLength: 255 })),
         date: t.String({ pattern: datePattern, error: "Date must be YYYY-MM-DD format" }),
         subscriptionId: t.Optional(t.Nullable(t.Integer({ minimum: 1 }))),
+        isRecurring: t.Optional(t.Boolean()),
       }),
     }
   )
@@ -237,6 +240,7 @@ export const transactionRoutes = new Elysia({
         description: t.Optional(t.String({ maxLength: 255 })),
         date: t.Optional(t.String({ pattern: datePattern })),
         subscriptionId: t.Optional(t.Nullable(t.Integer({ minimum: 1 }))),
+        isRecurring: t.Optional(t.Boolean()),
       }),
     }
   )

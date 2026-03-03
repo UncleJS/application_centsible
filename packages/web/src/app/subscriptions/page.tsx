@@ -39,6 +39,7 @@ import {
   Trash2,
   Loader2,
   CreditCard,
+  TrendingUp,
   RefreshCw,
   CalendarClock,
   Link as LinkIcon,
@@ -54,6 +55,7 @@ interface Subscription {
   id: number;
   userId: number;
   categoryId: number | null;
+  type: "income" | "expense";
   name: string;
   description: string | null;
   amount: string;
@@ -119,8 +121,8 @@ function SubscriptionCardSkeleton() {
 
 function SummarySkeleton() {
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 animate-pulse">
-      {[0, 1, 2].map((i) => (
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 animate-pulse">
+      {[0, 1, 2, 3].map((i) => (
         <div
           key={i}
           className="rounded-xl border border-zinc-800 bg-zinc-900 p-6 flex flex-col gap-3"
@@ -153,6 +155,7 @@ function SubscriptionCard({
   const renewalColor = getRenewalColor(days);
   const badgeClass = getRenewalBadgeVariant(days);
   const cycleLabel = BILLING_CYCLE_LABELS[subscription.billingCycle] ?? subscription.billingCycle;
+  const isIncome = subscription.type === "income";
 
   // Local currency equivalent shown in brackets when subscription is in a foreign currency.
   // Rates are fetched with base=userCurrency so rates[subCurrency] = "units of subCurrency
@@ -166,12 +169,27 @@ function SubscriptionCard({
       : null;
 
   return (
-    <Card className="bg-zinc-900 border-zinc-800 flex flex-col">
+    <Card className={`bg-zinc-900 flex flex-col ${isIncome ? "border-emerald-800/40" : "border-zinc-800"}`}>
       <CardHeader className="pb-0">
         <div className="flex items-start gap-2 min-w-0">
           <CardTitle className="text-base text-zinc-100 leading-snug truncate flex-1">
             {subscription.name}
           </CardTitle>
+          {/* Income/Expense type badge */}
+          <span
+            className={`shrink-0 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold ${
+              isIncome
+                ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+                : "bg-zinc-700/40 text-zinc-400 border-zinc-600/40"
+            }`}
+          >
+            {isIncome ? (
+              <TrendingUp className="size-2.5" />
+            ) : (
+              <CreditCard className="size-2.5" />
+            )}
+            {isIncome ? "Income" : "Expense"}
+          </span>
         </div>
         {subscription.description && (
           <CardDescription className="text-xs text-zinc-500 line-clamp-1">
@@ -208,8 +226,8 @@ function SubscriptionCard({
         {/* Amount + cycle */}
         <div className="flex items-center justify-between gap-2">
           <div className="flex flex-col gap-0.5 min-w-0">
-            <span className="text-xl font-bold font-mono text-zinc-100">
-              {formatCurrency(subscription.amount, subscription.currency)}
+            <span className={`text-xl font-bold font-mono ${isIncome ? "text-emerald-300" : "text-zinc-100"}`}>
+              {isIncome ? "+" : ""}{formatCurrency(subscription.amount, subscription.currency)}
               {localAmount !== null && (
                 <span className="text-sm font-normal text-zinc-400 ml-1.5">
                   ({formatCurrency(localAmount, userCurrency)})
@@ -269,6 +287,7 @@ function SubscriptionCard({
 }
 
 interface SubscriptionFormState {
+  type: "income" | "expense";
   name: string;
   description: string;
   amount: string;
@@ -282,6 +301,7 @@ interface SubscriptionFormState {
 }
 
 const DEFAULT_FORM: SubscriptionFormState = {
+  type: "expense",
   name: "",
   description: "",
   amount: "",
@@ -320,6 +340,7 @@ function SubscriptionDialog({
     if (open) {
       if (editingSub) {
         setForm({
+          type: editingSub.type,
           name: editingSub.name,
           description: editingSub.description ?? "",
           amount: editingSub.amount,
@@ -363,6 +384,7 @@ function SubscriptionDialog({
     }
 
     const body: Record<string, unknown> = {
+      type: form.type,
       name: form.name.trim(),
       description: form.description.trim() || null,
       amount: String(parseFloat(form.amount).toFixed(2)),
@@ -403,6 +425,35 @@ function SubscriptionDialog({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          {/* Income / Expense type toggle */}
+          <div className="flex flex-col gap-2">
+            <Label className="text-zinc-300">Type</Label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setField("type", "expense")}
+                className={`flex-1 rounded-md border py-1.5 text-sm font-medium transition-colors ${
+                  form.type === "expense"
+                    ? "border-emerald-600 bg-emerald-600/20 text-emerald-300"
+                    : "border-zinc-700 bg-zinc-800/50 text-zinc-400 hover:border-zinc-600"
+                }`}
+              >
+                Expense
+              </button>
+              <button
+                type="button"
+                onClick={() => setField("type", "income")}
+                className={`flex-1 rounded-md border py-1.5 text-sm font-medium transition-colors ${
+                  form.type === "income"
+                    ? "border-blue-600 bg-blue-600/20 text-blue-300"
+                    : "border-zinc-700 bg-zinc-800/50 text-zinc-400 hover:border-zinc-600"
+                }`}
+              >
+                Income
+              </button>
+            </div>
+          </div>
+
           {/* Name */}
           <div className="flex flex-col gap-2">
             <Label className="text-zinc-300">
@@ -534,15 +585,17 @@ function SubscriptionDialog({
                 <SelectItem value="__none__" className="focus:bg-zinc-800 focus:text-zinc-100 text-zinc-500">
                   None
                 </SelectItem>
-                {categories.map((cat) => (
-                  <SelectItem
-                    key={cat.id}
-                    value={String(cat.id)}
-                    className="focus:bg-zinc-800 focus:text-zinc-100"
-                  >
-                    {cat.name}
-                  </SelectItem>
-                ))}
+                {categories
+                  .filter((cat) => cat.type === form.type)
+                  .map((cat) => (
+                    <SelectItem
+                      key={cat.id}
+                      value={String(cat.id)}
+                      className="focus:bg-zinc-800 focus:text-zinc-100"
+                    >
+                      {cat.name}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
           </div>
@@ -735,19 +788,46 @@ export default function SubscriptionsPage() {
 
   // Convert each subscription to userCurrency before normalising to monthly.
   // Rates are fetched with base=userCurrency so rates[subCurrency] = "units of subCurrency
-  // per 1 unit of userCurrency". To convert subAmount → userCurrency: divide by the rate.
+  // per 1 unit of userCurrency" (e.g. base=ZAR, rates["USD"] ≈ 0.055 means 1 ZAR = 0.055 USD).
+  // To convert subAmount → userCurrency: divide by rates[subCurrency].
   // Falls back to 1:1 when rate is unavailable (same currency or service down).
   const totalMonthlyCost = useMemo(
     () =>
-      subscriptions.reduce((sum, sub) => {
-        const rate =
-          sub.currency === userCurrency
-            ? 1
-            : (exchangeRates[sub.currency] ?? null);
-        if (rate === null || rate <= 0) return sum; // skip unresolved rates rather than distort
-        return sum + toMonthly(sub.amount, sub.billingCycle) / rate;
-      }, 0),
+      subscriptions
+        .filter((sub) => sub.type !== "income")
+        .reduce((sum, sub) => {
+          const rate =
+            sub.currency === userCurrency
+              ? 1
+              : (exchangeRates[sub.currency] ?? null);
+          if (rate === null || rate <= 0) return sum;
+          return sum + toMonthly(sub.amount, sub.billingCycle) / rate;
+        }, 0),
     [subscriptions, exchangeRates, userCurrency]
+  );
+
+  const totalMonthlyIncome = useMemo(
+    () =>
+      subscriptions
+        .filter((sub) => sub.type === "income")
+        .reduce((sum, sub) => {
+          const rate =
+            sub.currency === userCurrency
+              ? 1
+              : (exchangeRates[sub.currency] ?? null);
+          if (rate === null || rate <= 0) return sum;
+          return sum + toMonthly(sub.amount, sub.billingCycle) / rate;
+        }, 0),
+    [subscriptions, exchangeRates, userCurrency]
+  );
+
+  const expenseSubscriptions = useMemo(
+    () => subscriptions.filter((s) => s.type !== "income"),
+    [subscriptions]
+  );
+  const incomeSubscriptions = useMemo(
+    () => subscriptions.filter((s) => s.type === "income"),
+    [subscriptions]
   );
 
   const activeCount = subscriptions.length;
@@ -780,7 +860,7 @@ export default function SubscriptionsPage() {
             Subscriptions
           </h1>
           <p className="text-sm text-zinc-500">
-            Track recurring charges and upcoming renewals.
+            Track recurring expenses and income sources.
           </p>
         </div>
         <Button
@@ -796,12 +876,12 @@ export default function SubscriptionsPage() {
       {loading ? (
         <SummarySkeleton />
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          {/* Total Monthly Cost */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {/* Monthly Expense Cost */}
           <Card className="bg-zinc-900 border-zinc-800">
             <CardContent className="flex flex-col gap-1 pt-6">
               <p className="text-xs uppercase tracking-widest font-medium text-zinc-500">
-                Total Monthly Cost
+                Monthly Expense Cost
               </p>
               {ratesPending ? (
                 <>
@@ -821,6 +901,30 @@ export default function SubscriptionsPage() {
             </CardContent>
           </Card>
 
+          {/* Monthly Recurring Income */}
+          <Card className="bg-zinc-900 border-emerald-800/30">
+            <CardContent className="flex flex-col gap-1 pt-6">
+              <p className="text-xs uppercase tracking-widest font-medium text-zinc-500">
+                Monthly Recurring Income
+              </p>
+              {ratesPending ? (
+                <>
+                  <p className="text-2xl font-bold font-mono text-zinc-500">—</p>
+                  <p className="text-xs text-zinc-600">loading exchange rates…</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-2xl font-bold font-mono text-emerald-300">
+                    +{formatCurrency(totalMonthlyIncome, userCurrency)}
+                  </p>
+                  <p className="text-xs text-zinc-600">
+                    normalized across all billing cycles
+                  </p>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Active Count */}
           <Card className="bg-zinc-900 border-zinc-800">
             <CardContent className="flex flex-col gap-1 pt-6">
@@ -831,7 +935,7 @@ export default function SubscriptionsPage() {
                 {activeCount}
               </p>
               <p className="text-xs text-zinc-600">
-                {activeCount === 1 ? "subscription" : "subscriptions"} tracked
+                {expenseSubscriptions.length} expense · {incomeSubscriptions.length} income
               </p>
             </CardContent>
           </Card>
@@ -881,7 +985,7 @@ export default function SubscriptionsPage() {
               No subscriptions yet
             </p>
             <p className="text-sm text-zinc-500">
-              Add your recurring services to track costs and upcoming renewals.
+              Add your recurring services or income sources to track costs and renewals.
             </p>
           </div>
           <Button
@@ -893,20 +997,56 @@ export default function SubscriptionsPage() {
           </Button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {subscriptions
-            .slice()
-            .sort((a, b) => a.nextRenewalDate.localeCompare(b.nextRenewalDate))
-            .map((sub) => (
-              <SubscriptionCard
-                key={sub.id}
-                subscription={sub}
-                userCurrency={userCurrency}
-                exchangeRates={exchangeRates}
-                onEdit={handleEdit}
-                onDelete={handleDeleteRequest}
-              />
-            ))}
+        <div className="flex flex-col gap-8">
+          {/* Income Subscriptions */}
+          {incomeSubscriptions.length > 0 && (
+            <div className="flex flex-col gap-3">
+              <h2 className="text-sm font-semibold uppercase tracking-widest text-zinc-500 flex items-center gap-2">
+                <TrendingUp className="size-3.5 text-emerald-400" />
+                Income
+              </h2>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {incomeSubscriptions
+                  .slice()
+                  .sort((a, b) => a.nextRenewalDate.localeCompare(b.nextRenewalDate))
+                  .map((sub) => (
+                    <SubscriptionCard
+                      key={sub.id}
+                      subscription={sub}
+                      userCurrency={userCurrency}
+                      exchangeRates={exchangeRates}
+                      onEdit={handleEdit}
+                      onDelete={handleDeleteRequest}
+                    />
+                  ))}
+              </div>
+            </div>
+          )}
+
+          {/* Expense Subscriptions */}
+          {expenseSubscriptions.length > 0 && (
+            <div className="flex flex-col gap-3">
+              <h2 className="text-sm font-semibold uppercase tracking-widest text-zinc-500 flex items-center gap-2">
+                <CreditCard className="size-3.5 text-zinc-400" />
+                Expenses
+              </h2>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {expenseSubscriptions
+                  .slice()
+                  .sort((a, b) => a.nextRenewalDate.localeCompare(b.nextRenewalDate))
+                  .map((sub) => (
+                    <SubscriptionCard
+                      key={sub.id}
+                      subscription={sub}
+                      userCurrency={userCurrency}
+                      exchangeRates={exchangeRates}
+                      onEdit={handleEdit}
+                      onDelete={handleDeleteRequest}
+                    />
+                  ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

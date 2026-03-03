@@ -41,6 +41,7 @@ import {
   CreditCard,
   Target,
   TrendingDown,
+  TrendingUp,
 } from "lucide-react";
 import { BILLING_CYCLE_MONTHS } from "@centsible/shared";
 
@@ -63,6 +64,8 @@ interface Category {
 
 interface Subscription {
   id: number;
+  type: "income" | "expense";
+  categoryId: number | null;
   amount: string;
   currency: string;
   billingCycle: string;
@@ -237,6 +240,7 @@ interface BudgetDialogProps {
   year: number;
   month: number;
   currency: string;
+  subscriptions: Subscription[];
   onSuccess: () => void;
 }
 
@@ -249,12 +253,14 @@ function BudgetDialog({
   year,
   month,
   currency,
+  subscriptions,
   onSuccess,
 }: BudgetDialogProps) {
   const [categoryId, setCategoryId] = useState<string>("");
   const [amount, setAmount] = useState<string>("");
   const [selectedType, setSelectedType] = useState<"expense" | "income">("expense");
   const [submitting, setSubmitting] = useState(false);
+  const [prefillHint, setPrefillHint] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -268,9 +274,31 @@ function BudgetDialog({
         setCategoryId("");
         setAmount("");
         setSelectedType("expense");
+        setPrefillHint(null);
       }
     }
   }, [open, editingBudget]);
+
+  // When user selects an income category while creating, pre-fill amount from
+  // a matching recurring income subscription (same categoryId).
+  function handleCategoryChange(value: string) {
+    setCategoryId(value);
+    setPrefillHint(null);
+    if (selectedType !== "income" || !value) return;
+    const catId = Number(value);
+    const match = subscriptions.find(
+      (s) => s.type === "income" && s.categoryId === catId
+    );
+    if (match) {
+      const cycleMonths = BILLING_CYCLE_MONTHS[match.billingCycle] ?? 1;
+      const monthly = parseFloat(match.amount) / cycleMonths;
+      const formatted = monthly.toFixed(2);
+      setAmount(formatted);
+      setPrefillHint(
+        `Pre-filled from recurring income (${match.currency} ${parseFloat(match.amount).toFixed(2)} / ${match.billingCycle} → ~${match.currency} ${formatted}/mo)`
+      );
+    }
+  }
 
   const isEditing = !!editingBudget;
 
@@ -337,7 +365,7 @@ function BudgetDialog({
               <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={() => { setSelectedType("expense"); setCategoryId(""); }}
+                  onClick={() => { setSelectedType("expense"); setCategoryId(""); setPrefillHint(null); }}
                   className={`flex-1 rounded-md border py-1.5 text-sm font-medium transition-colors ${
                     selectedType === "expense"
                       ? "border-emerald-600 bg-emerald-600/20 text-emerald-300"
@@ -348,7 +376,7 @@ function BudgetDialog({
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setSelectedType("income"); setCategoryId(""); }}
+                  onClick={() => { setSelectedType("income"); setCategoryId(""); setPrefillHint(null); }}
                   className={`flex-1 rounded-md border py-1.5 text-sm font-medium transition-colors ${
                     selectedType === "income"
                       ? "border-blue-600 bg-blue-600/20 text-blue-300"
@@ -370,7 +398,7 @@ function BudgetDialog({
                 {editingBudget!.categoryName ?? "Unknown"}
               </div>
             ) : (
-              <Select value={categoryId} onValueChange={setCategoryId}>
+              <Select value={categoryId} onValueChange={handleCategoryChange}>
                 <SelectTrigger
                   id="budget-category"
                   className="w-full border-zinc-700 bg-zinc-800/50 text-zinc-100 data-[placeholder]:text-zinc-500"
@@ -412,10 +440,16 @@ function BudgetDialog({
               step="0.01"
               placeholder="0.00"
               value={amount}
-              onChange={(e) => setAmount(e.target.value)}
+              onChange={(e) => { setAmount(e.target.value); setPrefillHint(null); }}
               className="border-zinc-700 bg-zinc-800/50 text-zinc-100 placeholder:text-zinc-600 font-mono"
               required
             />
+            {prefillHint && (
+              <p className="flex items-center gap-1.5 text-xs text-emerald-400">
+                <TrendingUp className="size-3 shrink-0" />
+                {prefillHint}
+              </p>
+            )}
           </div>
 
           <DialogFooter className="pt-1">
@@ -982,6 +1016,7 @@ export default function BudgetsPage() {
         year={year}
         month={month}
         currency={currency}
+        subscriptions={subscriptions}
         onSuccess={fetchBudgets}
       />
     </div>
