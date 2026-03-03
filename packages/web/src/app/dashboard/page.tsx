@@ -20,6 +20,8 @@ import {
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
 import { formatCurrency, daysUntil, monthsUntil } from "@/lib/format";
+import { BILLING_CYCLE_MONTHS } from "@centsible/shared";
+import type { RecurringIncome } from "@centsible/shared";
 
 interface MonthlySummary {
   year?: number;
@@ -167,22 +169,25 @@ export default function DashboardPage() {
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>([]);
+  const [recurringIncome, setRecurringIncome] = useState<RecurringIncome[]>([]);
 
   useEffect(() => {
     async function load() {
       try {
         setLoading(true);
         setError(null);
-        const [summaryRes, budgetsRes, subsRes, goalsRes] = await Promise.all([
+        const [summaryRes, budgetsRes, subsRes, goalsRes, recurringIncomeRes] = await Promise.all([
           api.getMonthlySummary(),
           api.getBudgets(),
           api.getUpcomingSubscriptions(30),
           api.getSavingsGoals(),
+          api.getRecurringIncome(),
         ]);
         setSummary(summaryRes.data);
         setBudgets(budgetsRes.data);
         setSubscriptions(subsRes.data);
         setSavingsGoals(goalsRes.data);
+        setRecurringIncome(recurringIncomeRes.data ?? []);
       } catch (err) {
         setError(
           err instanceof Error ? err.message : "Failed to load dashboard data."
@@ -194,7 +199,20 @@ export default function DashboardPage() {
     load();
   }, []);
 
-  const netPositive = summary ? parseFloat(summary.netAmount) >= 0 : true;
+  const totalMonthlyRecurringIncome = recurringIncome.reduce((sum, item) => {
+    const cycleMonths = BILLING_CYCLE_MONTHS[item.billingCycle] ?? 1;
+    return sum + parseFloat(item.amount) / cycleMonths;
+  }, 0);
+
+  const adjustedTotalIncome = summary
+    ? parseFloat(summary.totalIncome) + totalMonthlyRecurringIncome
+    : totalMonthlyRecurringIncome;
+
+  const adjustedNet = summary
+    ? adjustedTotalIncome - parseFloat(summary.totalExpenses)
+    : 0;
+
+  const netPositive = adjustedNet >= 0;
 
   // Compute budget usage % from loaded budgets
   const budgetUsagePct = (() => {
@@ -243,7 +261,7 @@ export default function DashboardPage() {
                   Total Income
                 </CardDescription>
                 <CardTitle className="text-2xl font-bold text-green-400">
-                  {summary ? formatCurrency(summary.totalIncome, currency) : "—"}
+                  {summary ? formatCurrency(adjustedTotalIncome, currency) : "—"}
                 </CardTitle>
                 <CardAction>
                   <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-green-500/10">
@@ -252,7 +270,18 @@ export default function DashboardPage() {
                 </CardAction>
               </CardHeader>
               <CardContent>
-                <p className="text-xs text-zinc-500">This month</p>
+                <p className="text-xs text-zinc-500">
+                  This month
+                  {totalMonthlyRecurringIncome > 0 && (
+                    <span className="ml-1">
+                      · incl.{" "}
+                      <span className="font-mono">
+                        {formatCurrency(totalMonthlyRecurringIncome, currency)}
+                      </span>{" "}
+                      recurring
+                    </span>
+                  )}
+                </p>
               </CardContent>
             </Card>
 
@@ -290,7 +319,7 @@ export default function DashboardPage() {
                   }`}
                 >
                   {summary
-                    ? formatCurrency(summary.netAmount, currency)
+                    ? formatCurrency(adjustedNet, currency)
                     : "—"}
                 </CardTitle>
                 <CardAction>

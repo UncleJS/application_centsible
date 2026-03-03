@@ -190,6 +190,7 @@ function MonthCard({
   const subs = parseFloat(data.subscriptionCosts) || 0;
   const expenses = parseFloat(data.projectedExpenses) || 0;
   const savings = parseFloat(data.savingsContributions) || 0;
+  const income = parseFloat(data.projectedIncome) || 0;
 
   const sortedItems = [...(data.items ?? [])].sort(
     (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
@@ -249,6 +250,17 @@ function MonthCard({
               {formatCurrency(data.savingsContributions, currency)}
             </span>
           </div>
+          {income > 0 && (
+            <div className="flex items-center justify-between text-sm">
+              <span className="flex items-center gap-1.5 text-zinc-300">
+                <span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                Recurring Income
+              </span>
+              <span className="text-emerald-400 tabular-nums font-mono">
+                +{formatCurrency(data.projectedIncome, currency)}
+              </span>
+            </div>
+          )}
         </div>
       </CardContent>
 
@@ -335,9 +347,10 @@ export default function ForecastPage() {
       acc.projected += parseFloat(m.totalProjected) || 0;
       acc.subscriptions += parseFloat(m.subscriptionCosts) || 0;
       acc.savings += parseFloat(m.savingsContributions) || 0;
+      acc.income += parseFloat(m.projectedIncome) || 0;
       return acc;
     },
-    { projected: 0, subscriptions: 0, savings: 0 }
+    { projected: 0, subscriptions: 0, savings: 0, income: 0 }
   );
 
   // All items sorted by date
@@ -399,9 +412,10 @@ export default function ForecastPage() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {loading ? (
           <>
+            <SummaryCardSkeleton />
             <SummaryCardSkeleton />
             <SummaryCardSkeleton />
             <SummaryCardSkeleton />
@@ -452,6 +466,23 @@ export default function ForecastPage() {
               <CardContent>
                 <p className="text-2xl font-bold text-zinc-100 tabular-nums font-mono">
                   {formatCurrency(totals.savings.toFixed(2), currency)}
+                </p>
+                <p className="text-xs text-zinc-500 mt-1">
+                  over {horizon} month{horizon !== "1" ? "s" : ""}
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-zinc-900 border-emerald-800/40">
+              <CardHeader className="pb-2">
+                <CardDescription className="text-zinc-400 flex items-center gap-2">
+                  <TrendingUp className="size-4 text-emerald-400" />
+                  Total Projected Income
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold text-emerald-400 tabular-nums font-mono">
+                  {formatCurrency(totals.income.toFixed(2), currency)}
                 </p>
                 <p className="text-xs text-zinc-500 mt-1">
                   over {horizon} month{horizon !== "1" ? "s" : ""}

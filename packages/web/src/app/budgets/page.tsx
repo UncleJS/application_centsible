@@ -1058,6 +1058,16 @@ export default function BudgetsPage() {
   // Grand total monthly commitment: expense budgets + subscriptions + savings
   const totalMonthlyCommitted = totalBudgetedExpenses + totalMonthlySubscriptions + totalMonthlySavings;
 
+  // Monthly recurring income (normalised across all billing cycles)
+  const totalMonthlyRecurringIncome = useMemo(
+    () =>
+      recurringIncome.reduce((sum, item) => {
+        const cycleMonths = BILLING_CYCLE_MONTHS[item.billingCycle] ?? 1;
+        return sum + parseFloat(item.amount) / cycleMonths;
+      }, 0),
+    [recurringIncome]
+  );
+
   const ratesPending =
     Object.keys(exchangeRates).length === 0 &&
     subscriptions.some((s) => s.currency !== currency);
@@ -1207,7 +1217,25 @@ export default function BudgetsPage() {
             </CardContent>
           </Card>
 
-          {/* ── Row 3: Commitments ── */}
+          {/* ── Row 3: Recurring income (informational) ── */}
+          <Card className="bg-zinc-900 border-zinc-800 lg:col-span-3">
+            <CardContent className="flex flex-col gap-1 pt-6">
+              <div className="flex items-center gap-2 mb-0.5">
+                <TrendingUp className="size-3.5 text-green-400" />
+                <p className="text-xs uppercase tracking-widest font-medium text-zinc-500">
+                  Monthly Recurring Income
+                </p>
+              </div>
+              <p className="text-2xl font-bold font-mono text-green-400">
+                {formatCurrency(totalMonthlyRecurringIncome, currency)}
+              </p>
+              <p className="text-xs text-zinc-600">
+                normalised monthly total across all recurring income sources
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* ── Row 4: Commitments ── */}
           <Card className="bg-zinc-900 border-zinc-800">
             <CardContent className="flex flex-col gap-1 pt-6">
               <div className="flex items-center gap-2 mb-0.5">
