@@ -506,15 +506,20 @@ export default function BudgetsPage() {
   );
   const totalRemaining = totalBudgeted - totalSpent;
 
-  // Total monthly subscription cost — each subscription converted to userCurrency
-  // using today's exchange rates, then normalised to a monthly equivalent.
-  // Falls back to 1:1 when a rate is unavailable (same currency or service down).
+  // Total monthly subscription cost — each subscription converted to userCurrency.
+  // Rates are fetched with base=userCurrency so rates[subCurrency] = "units of subCurrency
+  // per 1 unit of userCurrency". To convert subAmount → userCurrency: divide by the rate.
+  // Skips subscriptions whose rate is missing rather than distorting the total with 1:1.
   const totalMonthlySubscriptions = useMemo(
     () =>
       subscriptions.reduce((sum, sub) => {
         const cycleMonths = BILLING_CYCLE_MONTHS[sub.billingCycle] ?? 1;
-        const rate = sub.currency === currency ? 1 : (exchangeRates[sub.currency] ?? 1);
-        return sum + (parseFloat(sub.amount) / cycleMonths) * rate;
+        const rate =
+          sub.currency === currency
+            ? 1
+            : (exchangeRates[sub.currency] ?? null);
+        if (rate === null || rate <= 0) return sum;
+        return sum + (parseFloat(sub.amount) / cycleMonths) / rate;
       }, 0),
     [subscriptions, exchangeRates, currency]
   );

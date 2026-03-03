@@ -154,12 +154,16 @@ function SubscriptionCard({
   const badgeClass = getRenewalBadgeVariant(days);
   const cycleLabel = BILLING_CYCLE_LABELS[subscription.billingCycle] ?? subscription.billingCycle;
 
-  // Local currency equivalent shown in brackets when subscription is in a foreign currency
+  // Local currency equivalent shown in brackets when subscription is in a foreign currency.
+  // Rates are fetched with base=userCurrency so rates[subCurrency] = "units of subCurrency
+  // per 1 unit of userCurrency" (e.g. base=ZAR, rates["USD"] ≈ 0.055 means 1 ZAR = 0.055 USD).
+  // To convert subAmount → userCurrency: divide by rates[subCurrency].
   const isForeignCurrency = subscription.currency !== userCurrency;
   const foreignRate = isForeignCurrency ? exchangeRates[subscription.currency] : undefined;
-  const localAmount = foreignRate !== undefined
-    ? parseFloat(subscription.amount) * foreignRate
-    : null;
+  const localAmount =
+    foreignRate !== undefined && foreignRate > 0
+      ? parseFloat(subscription.amount) / foreignRate
+      : null;
 
   return (
     <Card className="bg-zinc-900 border-zinc-800 flex flex-col">
@@ -730,14 +734,18 @@ export default function SubscriptionsPage() {
   }
 
   // Convert each subscription to userCurrency before normalising to monthly.
-  // Rate from getLatestRates(userCurrency) is "units of userCurrency per 1 unit
-  // of sub.currency". Falls back to 1:1 when the rate is unavailable (same
-  // currency, or exchange rate service down).
+  // Rates are fetched with base=userCurrency so rates[subCurrency] = "units of subCurrency
+  // per 1 unit of userCurrency". To convert subAmount → userCurrency: divide by the rate.
+  // Falls back to 1:1 when rate is unavailable (same currency or service down).
   const totalMonthlyCost = useMemo(
     () =>
       subscriptions.reduce((sum, sub) => {
-        const rate = sub.currency === userCurrency ? 1 : (exchangeRates[sub.currency] ?? 1);
-        return sum + toMonthly(sub.amount, sub.billingCycle) * rate;
+        const rate =
+          sub.currency === userCurrency
+            ? 1
+            : (exchangeRates[sub.currency] ?? null);
+        if (rate === null || rate <= 0) return sum; // skip unresolved rates rather than distort
+        return sum + toMonthly(sub.amount, sub.billingCycle) / rate;
       }, 0),
     [subscriptions, exchangeRates, userCurrency]
   );
