@@ -8,6 +8,13 @@
       "when": 1772310265154,
       "tag": "0000_amusing_quentin_quire",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1772310265155,
+      "tag": "0001_recurring_income_and_transaction_flag",
+      "breakpoints": true
     }
   ]
 }
