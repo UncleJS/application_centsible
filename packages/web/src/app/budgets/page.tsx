@@ -497,7 +497,7 @@ function RecurringIncomeDialog({
   const [amount, setAmount] = useState("");
   const [riCurrency, setRiCurrency] = useState(currency);
   const [billingCycle, setBillingCycle] = useState<string>("monthly");
-  const [categoryId, setCategoryId] = useState<string>("");
+  const [categoryId, setCategoryId] = useState<string>("none");
   const [autoRenew, setAutoRenew] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
@@ -509,7 +509,7 @@ function RecurringIncomeDialog({
         setAmount(editing.amount);
         setRiCurrency(editing.currency);
         setBillingCycle(editing.billingCycle);
-        setCategoryId(editing.categoryId ? String(editing.categoryId) : "");
+        setCategoryId(editing.categoryId ? String(editing.categoryId) : "none");
         setAutoRenew(editing.autoRenew);
       } else {
         setName("");
@@ -517,7 +517,7 @@ function RecurringIncomeDialog({
         setAmount("");
         setRiCurrency(currency);
         setBillingCycle("monthly");
-        setCategoryId("");
+        setCategoryId("none");
         setAutoRenew(true);
       }
     }
@@ -541,7 +541,7 @@ function RecurringIncomeDialog({
       amount: parsed.toFixed(2),
       currency: riCurrency,
       billingCycle,
-      categoryId: categoryId ? Number(categoryId) : null,
+      categoryId: categoryId && categoryId !== "none" ? Number(categoryId) : null,
       autoRenew,
     };
 
@@ -670,7 +670,7 @@ function RecurringIncomeDialog({
                 <SelectValue placeholder="None" />
               </SelectTrigger>
               <SelectContent className="bg-zinc-900 border-zinc-700 text-zinc-100">
-                <SelectItem value="" className="focus:bg-zinc-800 focus:text-zinc-100 text-zinc-500">
+                <SelectItem value="none" className="focus:bg-zinc-800 focus:text-zinc-100 text-zinc-500">
                   None
                 </SelectItem>
                 {incomeCategories.map((cat) => (
