@@ -1,0 +1,74 @@
+name: Web Smoke
+
+on:
+  pull_request:
+    paths:
+      - "Containerfile.dev"
+      - "bun.lock"
+      - "package.json"
+      - "packages/shared/**"
+      - "packages/web/**"
+      - ".github/workflows/web-smoke.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "Containerfile.dev"
+      - "bun.lock"
+      - "package.json"
+      - "packages/shared/**"
+      - "packages/web/**"
+      - ".github/workflows/web-smoke.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: web-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Podman
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y podman
+
+      - name: Build dev image
+        run: podman build -t localhost/centsible-dev:ci -f Containerfile.dev .
+
+      - name: Start dev container
+        run: podman run -d --name centsible-dev-ci localhost/centsible-dev:ci
+
+      - name: Verify web package
+        run: |
+          podman exec centsible-dev-ci bun run --filter @centsible/web typecheck
+          podman exec centsible-dev-ci bun run --filter @centsible/web lint
+          podman exec centsible-dev-ci env -u NODE_ENV bun run --filter @centsible/web build
+          podman exec centsible-dev-ci bun run --filter @centsible/web test:smoke
+
+      - name: Extract Playwright artifacts
+        if: always()
+        run: |
+          mkdir -p artifacts
+          podman cp centsible-dev-ci:/workspace/packages/web/test-results ./artifacts/test-results || true
+
+      - name: Upload Playwright artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-smoke-artifacts
+          path: artifacts
+          if-no-files-found: ignore
+
+      - name: Cleanup container
+        if: always()
+        run: podman rm -f centsible-dev-ci || true

@@ -13,6 +13,7 @@ A self-hosted personal finance tracker. Track income and expenses, set monthly b
 - [Features](#features)
 - [Tech Stack](#tech-stack)
 - [Quick Start (Local Development)](#quick-start-local-development)
+- [Uninstall / Teardown](#uninstall--teardown)
 - [Documentation](#documentation)
 - [Project Layout](#project-layout)
 - [Default Categories](#default-categories)
@@ -75,6 +76,29 @@ bun run dev
 
 ---
 
+## Uninstall / Teardown
+
+For production-style Podman + Quadlet installs:
+
+```bash
+# Remove installed Quadlet files and runtime, keep DB data
+./infra/deploy.sh uninstall
+
+# Also remove local images
+./infra/deploy.sh uninstall --remove-images
+
+# Also purge the MariaDB named volume (destructive)
+./infra/deploy.sh uninstall --purge-volumes
+```
+
+Database data is preserved unless `--purge-volumes` is provided.
+
+See [docs/deployment.md](docs/deployment.md) for the full uninstall order and volume details.
+
+[↑ Go to TOC](#table-of-contents)
+
+---
+
 ## Documentation
 
 | Document | Description |
@@ -105,6 +129,7 @@ application_centsible/
 │   └── quadlet/                # systemd Quadlet unit files
 │       ├── centsible.pod
 │       ├── centsible-api.container
+│       ├── centsible-db.volume
 │       ├── centsible-web.container
 │       └── centsible-mariadb.container
 ├── .env.example      # Local development environment template

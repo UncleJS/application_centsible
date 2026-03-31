@@ -146,12 +146,13 @@ podman build \
 ./infra/deploy.sh install
 ```
 
-This copies the four files from `infra/quadlet/` to `~/.config/containers/systemd/`:
+This copies the five files from `infra/quadlet/` to `~/.config/containers/systemd/`:
 
 ```
 ~/.config/containers/systemd/
 ├── centsible.pod
 ├── centsible-api.container
+├── centsible-db.volume
 ├── centsible-web.container
 └── centsible-mariadb.container
 ```
@@ -239,6 +240,36 @@ The API container's entrypoint (`api-entrypoint.sh`) additionally polls `DB_HOST
 ```bash
 systemctl --user enable centsible-pod.service
 ```
+
+## Uninstalling Centsible
+
+```bash
+# Remove installed Quadlet files and runtime, keep DB volume data
+./infra/deploy.sh uninstall
+
+# Also remove locally built images
+./infra/deploy.sh uninstall --remove-images
+
+# Also purge the MariaDB named volume (destructive)
+./infra/deploy.sh uninstall --purge-volumes
+
+# Full teardown
+./infra/deploy.sh uninstall --remove-images --purge-volumes
+```
+
+The uninstall flow performs teardown in this order:
+
+1. `systemctl --user stop ...`
+2. `systemctl --user disable ...`
+3. `systemctl --user reset-failed ...`
+4. `podman pod rm -f centsible`
+5. `podman rm -f ...` for project containers
+6. optional `podman image rm -f ...`
+7. remove copied Quadlet files from `~/.config/containers/systemd/`
+8. `systemctl --user daemon-reload`
+9. optional `podman volume rm -f centsible-db`
+
+> `--purge-volumes` is destructive. Without it, the MariaDB data volume is preserved.
 
 [↑ Go to TOC](#table-of-contents)
 
@@ -381,7 +412,7 @@ podman exec -i centsible-mariadb \
 
 ### Persistent data volume
 
-MariaDB data is stored in the named Podman volume `centsible-db`. This volume persists across container restarts and image rebuilds.
+MariaDB data is declared via the Quadlet volume unit `infra/quadlet/centsible-db.volume`, which provisions the named Podman volume `centsible-db`. That volume persists across container restarts, image rebuilds, and standard uninstall operations.
 
 ```bash
 # Inspect volume location
@@ -389,6 +420,12 @@ podman volume inspect centsible-db
 
 # List all volumes
 podman volume ls
+```
+
+To remove database data entirely, run:
+
+```bash
+./infra/deploy.sh uninstall --purge-volumes
 ```
 
 [↑ Go to TOC](#table-of-contents)

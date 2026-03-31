@@ -50,7 +50,7 @@ class ApiClient {
     this.baseUrl = baseUrl;
   }
 
-  setTokens(_accessToken: string, _refreshToken: string) {}
+  setTokens() {}
 
   clearTokens() {}
 

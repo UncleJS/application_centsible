@@ -1,67 +1,65 @@
-# Centsible — Web (packages/web)
+# Centsible Web
 
-![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg?style=flat)
-![Next.js](https://img.shields.io/badge/Next.js-16-black?style=flat&logo=next.js)
-![React](https://img.shields.io/badge/React-19-61DAFB?style=flat&logo=react)
-![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-v4-38BDF8?style=flat&logo=tailwindcss)
+[![Web Smoke](https://github.com/UncleJS/application_centsible/actions/workflows/web-smoke.yml/badge.svg)](https://github.com/UncleJS/application_centsible/actions/workflows/web-smoke.yml)
 
-This is the [Next.js](https://nextjs.org) frontend package for Centsible, bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+Next.js frontend for Centsible.
 
----
+## Containerized workflow
 
-## Table of Contents
-
-- [Getting Started](#getting-started)
-- [Learn More](#learn-more)
-- [Deploy on Vercel](#deploy-on-vercel)
-
----
-
-## Getting Started
-
-First, run the development server:
+Run package commands inside the project dev container:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+podman exec centsible-dev bun run --filter @centsible/web typecheck
+podman exec centsible-dev bun run --filter @centsible/web lint
+podman exec centsible-dev env -u NODE_ENV bun run --filter @centsible/web build
+podman exec centsible-dev bun run --filter @centsible/web test:smoke
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Route grouping
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Primary grouped destinations:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `/dashboard`
+- `/budgets`
+- `/categories`
+- `/recurring/subscriptions`
+- `/recurring/income`
+- `/savings`
+- `/insights/reports`
+- `/insights/forecast`
 
-[↑ Go to TOC](#table-of-contents)
+Legacy routes remain available as redirects for compatibility.
 
----
+## Legacy redirect tracking
 
-## Learn More
+Legacy routes are redirected in app code instead of static config redirects because the redirect needs to preserve incoming query params and append tracking params when missing.
 
-To learn more about Next.js, take a look at the following resources:
+Tracked legacy routes:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- `/subscriptions` -> `/recurring/subscriptions`
+- `/reports` -> `/insights/reports`
+- `/forecast` -> `/insights/forecast`
+- `/categories/expense` -> `/categories?tab=expense`
+- `/categories/income` -> `/categories?tab=income`
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Redirect tracking params appended when absent:
 
-[↑ Go to TOC](#table-of-contents)
+- `utm_source=legacy-route`
+- `utm_medium=redirect`
+- `utm_campaign=navigation-regrouping`
+- `utm_content=<legacy route>`
 
----
+Rules:
 
-## Deploy on Vercel
+- existing query params are preserved
+- existing UTM values are not overwritten
+- `utm_content` identifies the legacy source route
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Smoke tests
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Playwright smoke coverage verifies:
 
-[↑ Go to TOC](#table-of-contents)
-
----
-
-&copy; 2026 UncleJs — Licensed under [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)
+- legacy redirects land on grouped routes
+- redirect tracking params are preserved/appended correctly
+- grouped pages render with mocked authenticated state
+- desktop and mobile navigation expose the regrouped information architecture

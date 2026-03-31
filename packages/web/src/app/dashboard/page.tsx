@@ -15,9 +15,11 @@ import {
   CardTitle,
   CardDescription,
   CardContent,
-  CardAction,
 } from "@/components/ui/card";
 import { api } from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/page-header";
+import { StatCard } from "@/components/ui/stat-card";
 import { useAuthStore } from "@/lib/store";
 import { formatCurrency, daysUntil, monthsUntil } from "@/lib/format";
 import { BILLING_CYCLE_MONTHS } from "@centsible/shared";
@@ -225,18 +227,24 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight text-zinc-50">
-          Dashboard
-        </h1>
-        {user && (
-          <p className="mt-1 text-zinc-400">
-            Welcome back,{" "}
-            <span className="font-medium text-zinc-200">{user.name}</span>
-          </p>
-        )}
-      </div>
+      <PageHeader
+        eyebrow="Overview"
+        title="Dashboard"
+        description={
+          user
+            ? `Welcome back, ${user.name}. Here’s your current income, spending, budgets, and savings progress.`
+            : "Your current income, spending, budgets, and savings progress."
+        }
+        action={
+          <Button
+            variant="outline"
+            className="border-zinc-700 bg-zinc-950/40 text-zinc-200 hover:bg-zinc-800"
+            onClick={() => window.location.reload()}
+          >
+            Refresh
+          </Button>
+        }
+      />
 
       {loading ? (
         <DashboardSkeleton />
@@ -252,147 +260,39 @@ export default function DashboardPage() {
         </div>
       ) : (
         <div className="space-y-6">
-          {/* Summary Cards */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {/* Total Income */}
-            <Card className="border-zinc-800 bg-zinc-900">
-              <CardHeader>
-                <CardDescription className="text-zinc-400">
-                  Total Income
-                </CardDescription>
-                <CardTitle className="text-2xl font-bold text-green-400">
-                  {summary ? formatCurrency(adjustedTotalIncome, currency) : "—"}
-                </CardTitle>
-                <CardAction>
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-green-500/10">
-                    <TrendingUp className="h-5 w-5 text-green-400" />
-                  </div>
-                </CardAction>
-              </CardHeader>
-              <CardContent>
-                <p className="text-xs text-zinc-500">
-                  This month
-                  {totalMonthlyRecurringIncome > 0 && (
-                    <span className="ml-1">
-                      · incl.{" "}
-                      <span className="font-mono">
-                        {formatCurrency(totalMonthlyRecurringIncome, currency)}
-                      </span>{" "}
-                      recurring
-                    </span>
-                  )}
-                </p>
-              </CardContent>
-            </Card>
-
-            {/* Total Expenses */}
-            <Card className="border-zinc-800 bg-zinc-900">
-              <CardHeader>
-                <CardDescription className="text-zinc-400">
-                  Total Expenses
-                </CardDescription>
-                <CardTitle className="text-2xl font-bold text-red-400">
-                  {summary
-                    ? formatCurrency(summary.totalExpenses, currency)
-                    : "—"}
-                </CardTitle>
-                <CardAction>
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-500/10">
-                    <TrendingDown className="h-5 w-5 text-red-400" />
-                  </div>
-                </CardAction>
-              </CardHeader>
-              <CardContent>
-                <p className="text-xs text-zinc-500">This month</p>
-              </CardContent>
-            </Card>
-
-            {/* Net Savings */}
-            <Card className="border-zinc-800 bg-zinc-900">
-              <CardHeader>
-                <CardDescription className="text-zinc-400">
-                  Net Savings
-                </CardDescription>
-                <CardTitle
-                  className={`text-2xl font-bold ${
-                    netPositive ? "text-emerald-400" : "text-red-400"
-                  }`}
-                >
-                  {summary
-                    ? formatCurrency(adjustedNet, currency)
-                    : "—"}
-                </CardTitle>
-                <CardAction>
-                  <div
-                    className={`flex h-9 w-9 items-center justify-center rounded-lg ${
-                      netPositive ? "bg-emerald-500/10" : "bg-red-500/10"
-                    }`}
-                  >
-                    <Wallet
-                      className={`h-5 w-5 ${
-                        netPositive ? "text-emerald-400" : "text-red-400"
-                      }`}
-                    />
-                  </div>
-                </CardAction>
-              </CardHeader>
-              <CardContent>
-                <p className="text-xs text-zinc-500">Income minus expenses</p>
-                {savingsGoals.length > 0 && (() => {
-                  const totalSaved = savingsGoals.reduce(
-                    (s, g) => s + parseFloat(g.currentAmount || "0"),
-                    0
-                  );
-                  const totalTarget = savingsGoals.reduce(
-                    (s, g) => s + parseFloat(g.targetAmount || "0"),
-                    0
-                  );
-                  return (
-                    <p className="mt-1 text-xs text-zinc-500">
-                      Saved{" "}
-                      <span className="text-zinc-300 font-mono">
-                        {formatCurrency(totalSaved, currency)}
-                      </span>
-                      {" "}of{" "}
-                      <span className="font-mono">
-                        {formatCurrency(totalTarget, currency)}
-                      </span>
-                      {" "}target
-                    </p>
-                  );
-                })()}
-              </CardContent>
-            </Card>
-
-            {/* Budget Usage */}
-            <Card className="border-zinc-800 bg-zinc-900">
-              <CardHeader>
-                <CardDescription className="text-zinc-400">
-                  Budget Usage
-                </CardDescription>
-                <CardTitle
-                  className={`text-2xl font-bold ${
-                    budgetUsagePct >= 90
-                      ? "text-red-400"
-                      : budgetUsagePct >= 75
-                      ? "text-amber-400"
-                      : "text-amber-300"
-                  }`}
-                >
-                  {summary
-                    ? `${budgetUsagePct.toFixed(1)}%`
-                    : "—"}
-                </CardTitle>
-                <CardAction>
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500/10">
-                    <Target className="h-5 w-5 text-amber-400" />
-                  </div>
-                </CardAction>
-              </CardHeader>
-              <CardContent>
-                <p className="text-xs text-zinc-500">Of total budget spent</p>
-              </CardContent>
-            </Card>
+            <StatCard
+              label="Total Income"
+              value={summary ? formatCurrency(adjustedTotalIncome, currency) : "—"}
+              hint={totalMonthlyRecurringIncome > 0 ? `This month · includes ${formatCurrency(totalMonthlyRecurringIncome, currency)} recurring` : "This month"}
+              icon={TrendingUp}
+              accentClassName="text-emerald-300"
+            />
+            <StatCard
+              label="Total Expenses"
+              value={summary ? formatCurrency(summary.totalExpenses, currency) : "—"}
+              hint="This month"
+              icon={TrendingDown}
+              accentClassName="text-red-300"
+            />
+            <StatCard
+              label="Net Savings"
+              value={summary ? formatCurrency(adjustedNet, currency) : "—"}
+              hint={savingsGoals.length > 0 ? (() => {
+                const totalSaved = savingsGoals.reduce((s, g) => s + parseFloat(g.currentAmount || "0"), 0);
+                const totalTarget = savingsGoals.reduce((s, g) => s + parseFloat(g.targetAmount || "0"), 0);
+                return `Saved ${formatCurrency(totalSaved, currency)} of ${formatCurrency(totalTarget, currency)} target`;
+              })() : "Income minus expenses"}
+              icon={Wallet}
+              accentClassName={netPositive ? "text-emerald-300" : "text-red-300"}
+            />
+            <StatCard
+              label="Budget Usage"
+              value={summary ? `${budgetUsagePct.toFixed(1)}%` : "—"}
+              hint="Of total budget spent"
+              icon={Target}
+              accentClassName={budgetUsagePct >= 90 ? "text-red-300" : budgetUsagePct >= 75 ? "text-amber-300" : "text-yellow-200"}
+            />
           </div>
 
           {/* Main Grid */}

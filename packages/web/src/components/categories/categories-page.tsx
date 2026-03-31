@@ -32,6 +32,7 @@ interface Category {
 
 interface CategoriesPageProps {
   type: "income" | "expense";
+  showHeader?: boolean;
 }
 
 const emptyForm = { name: "", icon: "", color: "" };
@@ -64,7 +65,7 @@ function ColorSwatch({
   );
 }
 
-export function CategoriesPage({ type }: CategoriesPageProps) {
+export function CategoriesPage({ type, showHeader = true }: CategoriesPageProps) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -203,13 +204,27 @@ export function CategoriesPage({ type }: CategoriesPageProps) {
       {/* Header */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex flex-col gap-1">
-          <h1 className={`text-2xl font-bold text-zinc-100 flex items-center gap-2`}>
-            <Tag className={`size-6 ${accentColor}`} />
-            {typeLabel} Categories
-          </h1>
-          <p className="text-sm text-zinc-500">
-            Manage your {type} categories for transactions and budgets.
-          </p>
+          {showHeader ? (
+            <>
+              <h1 className={`text-2xl font-bold text-zinc-100 flex items-center gap-2`}>
+                <Tag className={`size-6 ${accentColor}`} />
+                {typeLabel} Categories
+              </h1>
+              <p className="text-sm text-zinc-500">
+                Manage your {type} categories for transactions and budgets.
+              </p>
+            </>
+          ) : (
+            <>
+              <div className="flex items-center gap-2 text-sm font-semibold text-zinc-200">
+                <Tag className={`size-4 ${accentColor}`} />
+                {typeLabel}
+              </div>
+              <p className="text-sm text-zinc-500">
+                Manage your {type} categories for transactions and budgets.
+              </p>
+            </>
+          )}
         </div>
         <Button className={btnClass} onClick={openCreate}>
           <Plus className="size-4" />

@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuthStore } from "@/lib/store";
+import { MobileNav } from "./mobile-nav";
 import { Sidebar } from "./sidebar";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -50,11 +51,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex h-screen bg-zinc-950">
+    <div className="min-h-screen bg-zinc-950 md:flex">
       <Sidebar />
-      <main className="flex-1 overflow-auto">
-        <div className="mx-auto max-w-7xl p-6">{children}</div>
-      </main>
+      <div className="flex min-h-screen flex-1 flex-col">
+        <MobileNav />
+        <main className="flex-1 overflow-auto">
+          <div className="mx-auto max-w-7xl px-4 py-5 pb-24 sm:px-6 sm:py-6 md:px-8 md:py-8 md:pb-8">
+            {children}
+          </div>
+        </main>
+      </div>
     </div>
   );
 }

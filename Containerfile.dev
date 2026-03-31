@@ -1,0 +1,59 @@
+FROM registry.access.redhat.com/ubi10/ubi-minimal AS base
+
+ENV PATH="/usr/local/bin:${PATH}" \
+    NEXT_TELEMETRY_DISABLED=1 \
+    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+
+RUN microdnf install -y \
+      alsa-lib \
+      atk \
+      at-spi2-atk \
+      at-spi2-core \
+      bash \
+      ca-certificates \
+      cups-libs \
+      dbus-libs \
+      expat \
+      findutils \
+      git \
+      glib2 \
+      hostname \
+      gtk3 \
+      libX11 \
+      libXcomposite \
+      libXcursor \
+      libXdamage \
+      libXext \
+      libXfixes \
+      libXi \
+      libXrandr \
+      libXtst \
+      libdrm \
+      libxkbcommon \
+      libxshmfence \
+      mesa-libgbm \
+      nspr \
+      nss \
+      nodejs \
+      pango \
+      procps-ng \
+      tar \
+      which \
+    && microdnf clean all
+
+COPY --from=docker.io/oven/bun:1 /usr/local/bin/bun /usr/local/bin/bun
+
+WORKDIR /workspace
+
+COPY package.json bun.lock tsconfig.json ./
+COPY packages/shared/package.json packages/shared/package.json
+COPY packages/web/package.json packages/web/package.json
+COPY packages/api/package.json packages/api/package.json
+
+COPY . .
+
+RUN bun install
+
+RUN mkdir -p /ms-playwright && bun x playwright install chromium
+
+CMD ["sleep", "infinity"]

@@ -1,0 +1,17 @@
+[Unit]
+Description=Centsible development container
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+ContainerName=centsible-dev
+Image=localhost/centsible-dev:latest
+WorkingDir=/workspace
+Exec=sleep infinity
+Environment=NEXT_TELEMETRY_DISABLED=1
+
+[Service]
+Restart=on-failure
+
+[Install]
+WantedBy=default.target

@@ -26,8 +26,11 @@ import {
   CardDescription,
   CardContent,
 } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PageHeader } from "@/components/ui/page-header";
+import { StatCard } from "@/components/ui/stat-card";
 import {
   Dialog,
   DialogContent,
@@ -43,7 +46,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { DateOnlyInput } from "@/components/ui/date-input";
 
 interface SavingsGoal {
@@ -352,25 +354,20 @@ export default function SavingsPage() {
 
   return (
     <div className="flex flex-col gap-8">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-2xl font-bold text-zinc-100 flex items-center gap-2">
-            <Target className="size-6 text-emerald-400" />
-            Savings Goals
-          </h1>
-          <p className="text-sm text-zinc-500">
-            Track your progress toward financial milestones.
-          </p>
-        </div>
-        <Button
-          className="bg-emerald-600 text-white hover:bg-emerald-500"
-          onClick={openCreateGoal}
-        >
-          <Plus className="size-4" />
-          Add Goal
-        </Button>
-      </div>
+      <PageHeader
+        eyebrow="Goals"
+        title="Savings Goals"
+        description="Track progress toward milestones, deadlines, and the monthly contribution needed to stay on course."
+        action={
+          <Button
+            className="bg-emerald-600 text-white hover:bg-emerald-500"
+            onClick={openCreateGoal}
+          >
+            <Plus className="size-4" />
+            Add Goal
+          </Button>
+        }
+      />
 
       {/* Summary tiles */}
       {loading ? (
@@ -381,80 +378,26 @@ export default function SavingsPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {/* Total Saved */}
-          <Card className="bg-zinc-900 border-zinc-800">
-            <CardContent className="flex flex-col gap-1 pt-6">
-              <div className="flex items-center gap-3 mb-1">
-                <div className="p-2 rounded-md bg-emerald-900/50">
-                  <PiggyBank className="size-4 text-emerald-400" />
-                </div>
-                <p className="text-xs uppercase tracking-widest font-medium text-zinc-500">
-                  Total Saved
-                </p>
-              </div>
-              <p className="text-2xl font-bold font-mono text-zinc-100">
-                {formatCurrency(totalSaved, user?.defaultCurrency ?? "GBP")}
-              </p>
-              <p className="text-xs text-zinc-600">across all active goals</p>
-            </CardContent>
-          </Card>
-
-          {/* Active Goals */}
-          <Card className="bg-zinc-900 border-zinc-800">
-            <CardContent className="flex flex-col gap-1 pt-6">
-              <div className="flex items-center gap-3 mb-1">
-                <div className="p-2 rounded-md bg-blue-900/50">
-                  <Target className="size-4 text-blue-400" />
-                </div>
-                <p className="text-xs uppercase tracking-widest font-medium text-zinc-500">
-                  Active Goals
-                </p>
-              </div>
-              <p className="text-2xl font-bold font-mono text-zinc-100">
-                {activeGoals.length}
-              </p>
-              <p className="text-xs text-zinc-600">
-                {activeGoals.length === 1 ? "goal in progress" : "goals in progress"}
-              </p>
-            </CardContent>
-          </Card>
-
-          {/* Nearest Deadline */}
-          <Card className="bg-zinc-900 border-zinc-800">
-            <CardContent className="flex flex-col gap-1 pt-6">
-              <div className="flex items-center gap-3 mb-1">
-                <div className="p-2 rounded-md bg-amber-900/50">
-                  <CalendarClock className="size-4 text-amber-400" />
-                </div>
-                <p className="text-xs uppercase tracking-widest font-medium text-zinc-500">
-                  Nearest Deadline
-                </p>
-              </div>
-              {nearestGoal ? (
-                <>
-                  <p className="text-lg font-semibold text-zinc-100 truncate">
-                    {nearestGoal.name}
-                  </p>
-                  <p className="text-xs text-zinc-500 font-mono">
-                    {formatDate(nearestGoal.targetDate)} &mdash;{" "}
-                    <span
-                      className={
-                        daysUntil(nearestGoal.targetDate) < 30
-                          ? "text-red-400"
-                          : daysUntil(nearestGoal.targetDate) < 60
-                            ? "text-amber-400"
-                            : "text-green-400"
-                      }
-                    >
-                      {daysUntil(nearestGoal.targetDate)}d
-                    </span>
-                  </p>
-                </>
-              ) : (
-                <p className="text-sm text-zinc-600">No upcoming deadlines</p>
-              )}
-            </CardContent>
-          </Card>
+          <StatCard
+            label="Total Saved"
+            value={formatCurrency(totalSaved, user?.defaultCurrency ?? "GBP")}
+            hint="Across all active goals"
+            icon={PiggyBank}
+            accentClassName="text-emerald-300"
+          />
+          <StatCard
+            label="Active Goals"
+            value={String(activeGoals.length)}
+            hint={activeGoals.length === 1 ? "Goal in progress" : "Goals in progress"}
+            icon={Target}
+          />
+          <StatCard
+            label="Nearest Deadline"
+            value={nearestGoal ? nearestGoal.name : "—"}
+            hint={nearestGoal ? `${formatDate(nearestGoal.targetDate)} · ${daysUntil(nearestGoal.targetDate)}d` : "No upcoming deadlines"}
+            icon={CalendarClock}
+            accentClassName={nearestGoal ? daysUntil(nearestGoal.targetDate) < 30 ? "text-red-300" : daysUntil(nearestGoal.targetDate) < 60 ? "text-amber-300" : "text-emerald-300" : undefined}
+          />
         </div>
       )}
 
@@ -466,24 +409,20 @@ export default function SavingsPage() {
           ))}
         </div>
       ) : activeGoals.length === 0 ? (
-        /* Empty state */
-        <div className="flex flex-col items-center justify-center gap-6 rounded-xl border border-dashed border-zinc-700 bg-zinc-900/40 py-20 text-center">
-          <Inbox className="size-12 text-zinc-600" />
-          <div className="flex flex-col gap-1">
-            <p className="text-base font-semibold text-zinc-300">No savings goals yet</p>
-            <p className="text-sm text-zinc-500 max-w-xs">
-              Create your first savings goal to start tracking progress toward your
-              financial milestones.
-            </p>
-          </div>
-          <Button
-            className="bg-emerald-600 text-white hover:bg-emerald-500"
-            onClick={openCreateGoal}
-          >
-            <Plus className="size-4" />
-            Add Goal
-          </Button>
-        </div>
+        <EmptyState
+          icon={Inbox}
+          title="No savings goals yet"
+          description="Create your first savings goal to start tracking progress toward your financial milestones."
+          action={
+            <Button
+              className="bg-emerald-600 text-white hover:bg-emerald-500"
+              onClick={openCreateGoal}
+            >
+              <Plus className="size-4" />
+              Add Goal
+            </Button>
+          }
+        />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {activeGoals.map((goal) => {
