@@ -1,10 +1,15 @@
 import { Elysia, t } from "elysia";
 import { authMiddleware } from "../middleware/auth";
 import { db, schema } from "../db";
-import { eq, and, isNull, gte, lte, desc, sql, like } from "drizzle-orm";
+import { eq, and, isNull, gte, lte, desc, sql } from "drizzle-orm";
+import { isSupportedCurrency, supportedCurrencyError } from "../lib/supported-currency";
 
 const amountPattern = "^\\d+(\\.\\d{1,2})?$";
 const datePattern = "^\\d{4}-\\d{2}-\\d{2}$";
+
+function escapeLikePattern(value: string): string {
+  return value.replace(/[\\%_]/g, "\\$&");
+}
 
 export const transactionRoutes = new Elysia({
   prefix: "/transactions",
@@ -57,7 +62,10 @@ export const transactionRoutes = new Elysia({
         conditions.push(lte(schema.transactions.date, dateTo));
       }
       if (search) {
-        conditions.push(like(schema.transactions.description, `%${search.slice(0, 100)}%`));
+        const escapedSearch = escapeLikePattern(search.slice(0, 100));
+        conditions.push(
+          sql`${schema.transactions.description} LIKE ${`%${escapedSearch}%`} ESCAPE '\\'`
+        );
       }
 
       const whereClause = and(...conditions);
@@ -112,6 +120,11 @@ export const transactionRoutes = new Elysia({
   .post(
     "/",
     async ({ body, user, set }) => {
+      if (!isSupportedCurrency(body.currency)) {
+        set.status = 400;
+        return { error: supportedCurrencyError() };
+      }
+
       // Verify category belongs to user
       const [category] = await db
         .select()
@@ -176,6 +189,11 @@ export const transactionRoutes = new Elysia({
     "/:id",
     async ({ params, body, user, set }) => {
       const id = Number(params.id);
+
+      if (body.currency !== undefined && !isSupportedCurrency(body.currency)) {
+        set.status = 400;
+        return { error: supportedCurrencyError() };
+      }
 
       const [existing] = await db
         .select()

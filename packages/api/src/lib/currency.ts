@@ -1,5 +1,4 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
-import { db, schema } from "../db";
 
 export type ConversionWarning = {
   from: string;
@@ -21,6 +20,8 @@ export async function loadLatestRateMap(
     .filter((c) => c && c !== baseCurrency.toUpperCase());
 
   if (needed.length === 0) return new Map();
+
+  const { db, schema } = await import("../db");
 
   const rows = await db
     .select({

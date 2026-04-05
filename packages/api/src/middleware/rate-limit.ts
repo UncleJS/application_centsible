@@ -17,18 +17,25 @@ function floorToWindow(nowMs: number, windowMs: number): Date {
 }
 
 function getClientIdentifier(
+  request: Request,
+  server: unknown,
   headers: Record<string, string | undefined>
 ): string {
   const forwarded = headers["x-forwarded-for"]?.split(",")[0]?.trim();
   const realIp = headers["x-real-ip"]?.trim();
   const fallbackIp = headers["cf-connecting-ip"]?.trim();
-  const ua = (headers["user-agent"] || "unknown").slice(0, 120);
+
+  const nativeIp = (server as {
+    requestIP?: (request: Request) => { address?: string | null } | null;
+  } | null)?.requestIP?.(request)?.address?.trim();
 
   const trustedIp = config.trustProxyHeaders
     ? forwarded || realIp || fallbackIp
     : undefined;
 
-  return truncateIdentifier(trustedIp ? `ip:${trustedIp}` : `ua:${ua}`);
+  const identifier = trustedIp || nativeIp || "unknown";
+
+  return truncateIdentifier(`ip:${identifier}`);
 }
 
 async function archiveStaleWindows(nowMs: number): Promise<void> {
@@ -94,8 +101,10 @@ function makeRateLimitPlugin(
   maxRequests: number,
   as: "local" | "scoped"
 ) {
-  return new Elysia({ name }).derive({ as }, async ({ headers, set }) => {
+  return new Elysia({ name }).derive({ as }, async ({ request, server, headers, set }) => {
     const identifier = getClientIdentifier(
+      request,
+      server,
       headers as Record<string, string | undefined>
     );
 

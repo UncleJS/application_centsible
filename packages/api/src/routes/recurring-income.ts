@@ -2,6 +2,7 @@ import { Elysia, t } from "elysia";
 import { authMiddleware } from "../middleware/auth";
 import { db, schema } from "../db";
 import { eq, and, isNull } from "drizzle-orm";
+import { isSupportedCurrency, supportedCurrencyError } from "../lib/supported-currency";
 
 const amountPattern = "^\\d+(\\.\\d{1,2})?$";
 
@@ -48,6 +49,11 @@ export const recurringIncomeRoutes = new Elysia({
   .post(
     "/",
     async ({ body, user, set }) => {
+      if (!isSupportedCurrency(body.currency)) {
+        set.status = 400;
+        return { error: supportedCurrencyError() };
+      }
+
       // Verify category ownership if provided
       if (body.categoryId) {
         const [category] = await db
@@ -112,6 +118,11 @@ export const recurringIncomeRoutes = new Elysia({
     "/:id",
     async ({ params, body, user, set }) => {
       const id = Number(params.id);
+
+      if (body.currency !== undefined && !isSupportedCurrency(body.currency)) {
+        set.status = 400;
+        return { error: supportedCurrencyError() };
+      }
 
       const [existing] = await db
         .select()

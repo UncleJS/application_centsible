@@ -8,6 +8,7 @@ import {
   toFixed2,
   type ConversionWarning,
 } from "../lib/currency";
+import { isSupportedCurrency, supportedCurrencyError } from "../lib/supported-currency";
 
 const amountPattern = "^\\d+(\\.\\d{1,2})?$";
 
@@ -180,6 +181,11 @@ export const budgetRoutes = new Elysia({
     "/",
     async ({ body, user, set }) => {
       const { categoryId, year, month, amount, currency } = body;
+
+      if (!isSupportedCurrency(currency)) {
+        set.status = 400;
+        return { error: supportedCurrencyError() };
+      }
 
       // Verify category belongs to user
       const [category] = await db

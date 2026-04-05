@@ -1,7 +1,14 @@
 // ── Centralized configuration ──
-// Crashes on startup if required secrets are missing in production.
+// Crashes on startup if required secrets are missing or unsafe.
 
 const isProduction = process.env.NODE_ENV === "production";
+
+const forbiddenSecretValues = new Set([
+  "change-this-to-a-random-secret-in-production",
+  "change-this-to-a-different-random-secret-in-production",
+  "centsible-dev-secret-change-in-production",
+  "centsible-dev-refresh-secret-change-in-production",
+]);
 
 function requireEnv(name: string, devDefault: string): string {
   const value = process.env[name];
@@ -13,16 +20,29 @@ function requireEnv(name: string, devDefault: string): string {
   return devDefault;
 }
 
+function requireSecretEnv(name: string): string {
+  const value = process.env[name]?.trim();
+
+  if (!value) {
+    throw new Error(`Missing required secret environment variable: ${name}`);
+  }
+
+  if (forbiddenSecretValues.has(value)) {
+    throw new Error(
+      `Unsafe secret configured for ${name}. Replace the placeholder/example value before starting the API.`
+    );
+  }
+
+  return value;
+}
+
 export const config = {
   port: Number(process.env.API_PORT) || 4000,
   isProduction,
 
   // JWT — separate secrets for access and refresh tokens
-  jwtSecret: requireEnv("JWT_SECRET", "centsible-dev-secret-change-in-production"),
-  jwtRefreshSecret: requireEnv(
-    "JWT_REFRESH_SECRET",
-    "centsible-dev-refresh-secret-change-in-production"
-  ),
+  jwtSecret: requireSecretEnv("JWT_SECRET"),
+  jwtRefreshSecret: requireSecretEnv("JWT_REFRESH_SECRET"),
 
   // Token expiry
   accessTokenExp: "15m" as const,

@@ -2,13 +2,13 @@ import { Elysia, t } from "elysia";
 import { jwt } from "@elysiajs/jwt";
 import { db, schema } from "../db";
 import { eq, and, isNull, lte } from "drizzle-orm";
-import { SUPPORTED_CURRENCIES } from "@centsible/shared";
 import { hash, verify } from "argon2";
 import {
   DEFAULT_EXPENSE_CATEGORIES,
   DEFAULT_INCOME_CATEGORIES,
 } from "@centsible/shared";
 import { config } from "../config";
+import { isSupportedCurrency, supportedCurrencyError } from "../lib/supported-currency";
 import { authRateLimit } from "../middleware/rate-limit";
 import { authMiddleware } from "../middleware/auth";
 import {
@@ -97,6 +97,11 @@ export const authRoutes = new Elysia({ prefix: "/auth", detail: { tags: ["Auth"]
     "/register",
     async ({ body, jwt, refreshJwt, set, cookie }) => {
       const { email, password, name, defaultCurrency } = body;
+
+      if (defaultCurrency !== undefined && !isSupportedCurrency(defaultCurrency)) {
+        set.status = 400;
+        return { error: supportedCurrencyError("defaultCurrency") };
+      }
 
       // Check if email already exists
       const [existing] = await db
@@ -484,9 +489,9 @@ export const authRoutes = new Elysia({ prefix: "/auth", detail: { tags: ["Auth"]
     async ({ user, body, set }) => {
       const { name, defaultCurrency } = body;
 
-      if (defaultCurrency !== undefined && !(SUPPORTED_CURRENCIES as readonly string[]).includes(defaultCurrency)) {
+      if (defaultCurrency !== undefined && !isSupportedCurrency(defaultCurrency)) {
         set.status = 400;
-        return { error: "Unsupported currency code" };
+        return { error: supportedCurrencyError("defaultCurrency") };
       }
 
       const updates: Record<string, unknown> = {};

@@ -2,7 +2,6 @@ import { Elysia, t } from "elysia";
 import { authMiddleware } from "../middleware/auth";
 import { db, schema } from "../db";
 import { eq, and, isNull, gte, lt, sql } from "drizzle-orm";
-import { BILLING_CYCLE_MONTHS } from "@centsible/shared";
 import type { ForecastMonth, ForecastItem } from "@centsible/shared";
 import {
   convertToBaseCurrency,
@@ -11,6 +10,7 @@ import {
   type ConversionWarning,
 } from "../lib/currency";
 import { getRecurringIncomeOccurrencesInMonth } from "../lib/forecast";
+import { getSubscriptionRenewalsInMonth } from "../lib/subscription-renewals";
 
 // ── Helpers ──
 
@@ -649,62 +649,3 @@ export const reportRoutes = new Elysia({
 
     return csv;
   });
-
-// ── Helper: Calculate subscription renewal dates within a given month ──
-
-function getSubscriptionRenewalsInMonth(
-  sub: {
-    nextRenewalDate: string;
-    billingCycle: string;
-    autoRenew: boolean;
-  },
-  year: number,
-  month: number
-): string[] {
-  if (!sub.autoRenew) return [];
-
-  const renewals: string[] = [];
-  const cycleMonths = BILLING_CYCLE_MONTHS[sub.billingCycle] || 1;
-
-  // Guard against non-positive cycle which would cause infinite loop
-  if (cycleMonths <= 0) return [];
-
-  // Build month boundary strings (YYYY-MM-DD) using UTC to avoid timezone drift
-  const monthStartStr = `${year}-${String(month).padStart(2, "0")}-01`;
-  const lastDayUtc = new Date(Date.UTC(year, month, 0)); // day-0 of next month = last day of this month
-  const monthEndStr = lastDayUtc.toISOString().slice(0, 10);
-
-  // Start from the stored next renewal date and step forward in billing cycle increments.
-  // Parse as UTC so date strings stay stable regardless of server timezone.
-  let current = new Date(sub.nextRenewalDate + "T00:00:00Z");
-
-  // Safety limit to prevent runaway loops (max 200 iterations)
-  let iterations = 0;
-
-  while (iterations < 200) {
-    iterations++;
-    const currentStr = current.toISOString().slice(0, 10);
-
-    // Past the end of the target month — stop
-    if (currentStr > monthEndStr) break;
-
-    // Within the target month — record it
-    if (currentStr >= monthStartStr && currentStr <= monthEndStr) {
-      renewals.push(currentStr);
-    }
-
-    // Advance by billing cycle
-    if (cycleMonths >= 1) {
-      const nextMonth = current.getUTCMonth() + Math.round(cycleMonths);
-      const nextDay = current.getUTCDate();
-      // Use UTC constructor; JS handles month overflow automatically
-      current = new Date(Date.UTC(current.getUTCFullYear(), nextMonth, nextDay));
-    } else {
-      // Sub-monthly (weekly / fortnightly)
-      const days = Math.round(cycleMonths * 30.44);
-      current = new Date(current.getTime() + days * 24 * 60 * 60 * 1000);
-    }
-  }
-
-  return renewals;
-}
