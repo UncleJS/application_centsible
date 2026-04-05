@@ -168,6 +168,21 @@ cp .env.example .env
 
 ## Running Locally
 
+### Container-first note
+
+This repository uses **two different local workflows**:
+
+1. **Workspace dev servers** via `bun run dev` for the app directly on `:3000` and `:4000`
+2. **Podman + systemd Quadlet stack** for the repo-configured container deployment on `:10300` and `:10301`
+
+The `centsible-dev` container is a **utility container** used for verification and image-build preparation. It runs **inside the same `centsible` pod** as the app stack, is expected to run `sleep infinity`, and accepts `podman exec` commands such as:
+
+```bash
+podman exec centsible-dev bun run verify:image
+```
+
+It does **not** serve the web UI or API itself. The published app ports `10300/10301` belong to the Quadlet-managed stack (`centsible-pod`, `centsible-mariadb`, `centsible-api`, `centsible-web`).
+
 ### Full stack (recommended)
 
 ```bash
@@ -217,6 +232,7 @@ All scripts run from the **project root**:
 | `bun run db:studio` | Open Drizzle Studio in the browser |
 | `bun run typecheck` | Run `tsc --noEmit` in all packages |
 | `bun run lint` | Run ESLint in all packages |
+| `bun run verify:image` | Required pre-image-build checks: workspace typecheck + web lint |
 
 Package-specific scripts (run with `bun run --filter @centsible/api <script>`):
 
@@ -225,6 +241,28 @@ Package-specific scripts (run with `bun run --filter @centsible/api <script>`):
 | `db:seed` | api | Populate database with sample data |
 | `start` | api | Run the production bundle (`dist/index.js`) |
 | `start` | web | Run the Next.js production build |
+
+### Inspecting the local Quadlet stack
+
+When using the repo-configured Podman + systemd deployment stack, inspect it with these exact commands:
+
+```bash
+# systemd user services
+systemctl --user status centsible-pod.service
+systemctl --user status centsible-mariadb.service
+systemctl --user status centsible-api.service
+systemctl --user status centsible-web.service
+systemctl --user status centsible-dev.service
+
+# pod / containers / published ports
+podman pod ps --format 'table {{.Name}}\t{{.Status}}\t{{.Ports}}'
+podman ps --filter "pod=centsible" --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}'
+podman ps --filter "name=centsible-dev" --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}'
+
+# quick endpoint checks
+podman port centsible-web
+podman port centsible-api
+```
 
 [↑ Go to TOC](#table-of-contents)
 

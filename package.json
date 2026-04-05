@@ -12,7 +12,8 @@
     "db:studio": "bun run --filter @centsible/api db:studio",
     "test": "bun run --filter @centsible/api test",
     "lint": "bun run --filter '*' lint",
-    "typecheck": "bun run --filter '*' typecheck"
+    "typecheck": "bun run --filter '*' typecheck",
+    "verify:image": "bun run typecheck && bun run --filter @centsible/web lint"
   },
   "devDependencies": {
     "typescript": "^5.7.3"

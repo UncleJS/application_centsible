@@ -28,8 +28,16 @@ COPY --from=deps /app/packages/web/node_modules ./packages/web/node_modules
 
 # Copy source
 COPY package.json bunfig.toml ./
+COPY bun.lock ./
+COPY packages/api/package.json packages/api/
+COPY packages/shared/package.json packages/shared/
+COPY packages/web/package.json packages/web/
 COPY packages/shared/ packages/shared/
 COPY packages/web/ packages/web/
+
+# Re-link workspace dependencies after source copy so package binaries
+# like `next` are available during the build step.
+RUN bun install --frozen-lockfile
 
 # Build-time env: NEXT_PUBLIC_* is baked into the client JS bundle at build time.
 # Always pass the correct value via --build-arg when building for production.

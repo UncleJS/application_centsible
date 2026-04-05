@@ -36,13 +36,16 @@ Host (rootless user session)
       ├── centsible-pod.service        (Podman pod — shared network namespace)
       │     ├── centsible-mariadb      MariaDB 11.7  — port 3306 (pod-internal only)
       │     ├── centsible-api          Bun/Elysia    — port 10301 (exposed)
-      │     └── centsible-web          Next.js       — port 10300 (exposed)
+      │     ├── centsible-web          Next.js       — port 10300 (exposed)
+      │     └── centsible-dev          Utility dev   — no exposed ports
       │
       └── systemd volumes
             └── centsible-db           Persistent MariaDB data
 ```
 
 All containers share `localhost` within the pod (slirp4netns networking). The API reaches MariaDB at `localhost:3306`. The web app reaches the API at `localhost:10301`. MariaDB is **never exposed** outside the pod.
+
+The `centsible-dev` container runs **inside the same pod** but is **not part of the serving path**. It is a utility container for `podman exec` workflows such as `bun run verify:image` before image builds. If `localhost:10300` or `localhost:10301` are down, inspect `centsible-pod`, `centsible-mariadb`, `centsible-api`, and `centsible-web` first — not `centsible-dev`.
 
 ### Exposed ports
 
@@ -283,6 +286,24 @@ systemctl --user status centsible-pod.service
 systemctl --user status centsible-mariadb.service
 systemctl --user status centsible-api.service
 systemctl --user status centsible-web.service
+systemctl --user status centsible-dev.service
+
+# Compact service state view
+systemctl --user --no-pager --full status \
+  centsible-pod.service \
+  centsible-mariadb.service \
+  centsible-api.service \
+  centsible-web.service \
+  centsible-dev.service
+
+# Podman runtime view
+podman pod ps --format 'table {{.Name}}\t{{.Status}}\t{{.Ports}}'
+podman ps --filter "pod=centsible" --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}'
+podman ps --filter "name=centsible-dev" --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}'
+
+# Published ports
+podman port centsible-web
+podman port centsible-api
 
 # Health check the API
 curl http://localhost:10301/health
@@ -291,6 +312,44 @@ curl http://localhost:10301/health
 # Check the web app is responding
 curl -I http://localhost:10300
 # Expected: HTTP/1.1 200 OK
+
+# Confirm the utility container used for pre-build verification exists
+podman exec centsible-dev bun run verify:image
+```
+
+### Exact commands to inspect the stack yourself
+
+```bash
+# Services
+systemctl --user status centsible-pod.service
+systemctl --user status centsible-mariadb.service
+systemctl --user status centsible-api.service
+systemctl --user status centsible-web.service
+systemctl --user status centsible-dev.service
+
+# Containers and pod
+podman pod ps --format 'table {{.Name}}\t{{.Status}}\t{{.Ports}}'
+podman ps --filter "pod=centsible" --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}'
+podman ps --filter "name=centsible-dev" --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}'
+
+# Logs
+journalctl --user -u centsible-pod.service -n 100 --no-pager
+journalctl --user -u centsible-mariadb.service -n 100 --no-pager
+journalctl --user -u centsible-api.service -n 100 --no-pager
+journalctl --user -u centsible-web.service -n 100 --no-pager
+podman logs --tail 100 centsible-mariadb
+podman logs --tail 100 centsible-api
+podman logs --tail 100 centsible-web
+
+# Port bindings
+podman port centsible-web
+podman port centsible-api
+
+# Database sanity check (uses the installed Quadlet env file)
+set -a
+. "$HOME/.config/containers/systemd/.env.centsible"
+set +a
+podman exec centsible-mariadb mariadb -u "$MARIADB_USER" -p"$MARIADB_PASSWORD" -D "$MARIADB_DATABASE" -e 'SHOW TABLES;'
 ```
 
 [↑ Go to TOC](#table-of-contents)

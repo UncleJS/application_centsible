@@ -23,14 +23,17 @@ PROJECT_UNITS=(
   centsible-mariadb.service
   centsible-api.service
   centsible-web.service
+  centsible-dev.service
 )
 PROJECT_POD="centsible"
 PROJECT_CONTAINERS=(
   centsible-mariadb
   centsible-api
   centsible-web
+  centsible-dev
 )
 PROJECT_IMAGES=(
+  localhost/centsible-dev:latest
   centsible-api:latest
   centsible-web:latest
 )
@@ -39,6 +42,7 @@ PROJECT_QUADLET_FILES=(
   centsible-mariadb.container
   centsible-api.container
   centsible-web.container
+  centsible-dev.container
   centsible-db.volume
 )
 PROJECT_VOLUMES=(
@@ -74,8 +78,27 @@ parse_uninstall_flags() {
   done
 }
 
+verify_before_build() {
+  info "Running required pre-build verification in centsible-dev..."
+
+  if ! podman container exists centsible-dev; then
+    error "Required dev container 'centsible-dev' is not available. Start/rebuild it first."
+    exit 1
+  fi
+
+  podman exec centsible-dev bun run verify:image
+}
+
 # ── Build images ─────────────────────────────────────────────
 build() {
+  verify_before_build
+
+  info "Building centsible-dev image..."
+  podman build \
+    -t localhost/centsible-dev:latest \
+    -f "$PROJECT_ROOT/Containerfile.dev" \
+    "$PROJECT_ROOT"
+
   info "Building centsible-api image..."
   podman build \
     -t centsible-api:latest \
@@ -194,11 +217,13 @@ start() {
   systemctl --user status centsible-mariadb.service --no-pager || true
   systemctl --user status centsible-api.service --no-pager || true
   systemctl --user status centsible-web.service --no-pager || true
+  systemctl --user status centsible-dev.service --no-pager || true
 
   info "Centsible is running:"
   info "  Web:     http://localhost:10300"
   info "  API:     http://localhost:10301"
   info "  Swagger: http://localhost:10301/docs"
+  info "  Dev:     centsible-dev (utility container inside the pod)"
 }
 
 # ── Stop services ────────────────────────────────────────────
@@ -210,7 +235,7 @@ stop() {
 
 # ── Tail logs ────────────────────────────────────────────────
 logs() {
-  journalctl --user -u centsible-api.service -u centsible-web.service -u centsible-mariadb.service -f
+  journalctl --user -u centsible-api.service -u centsible-web.service -u centsible-mariadb.service -u centsible-dev.service -f
 }
 
 # ── Seed database ────────────────────────────────────────────

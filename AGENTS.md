@@ -56,3 +56,18 @@ Search results can flood context. Use `context-mode_ctx_execute(language: "shell
 | `ctx stats` | Call the `stats` MCP tool and display the full output verbatim |
 | `ctx doctor` | Call the `doctor` MCP tool, run the returned shell command, display as checklist |
 | `ctx upgrade` | Call the `upgrade` MCP tool, run the returned shell command, display as checklist |
+
+## Hard rule — verify before any container image build
+
+Before any `podman build` for this repo, always run these checks in the dev container first:
+
+```bash
+podman exec centsible-dev bun run verify:image
+```
+
+This currently runs:
+
+- workspace type checks
+- web lint
+
+If verification fails, stop and fix the issues before building the image.

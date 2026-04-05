@@ -1,17 +1,22 @@
+# Centsible Dev Utility Container (runs in centsible pod)
+# Utility-only: verification, exec-based workflows, and maintenance commands.
+# No app ports are exposed from this container.
+
 [Unit]
-Description=Centsible development container
+Description=Centsible Dev Utility Container (Pod)
+Documentation=https://podman.io/
 After=network-online.target centsible-pod.service
 Wants=network-online.target
 BindsTo=centsible-pod.service
 
 [Container]
-ContainerName=centsible-dev
 Image=localhost/centsible-dev:latest
+ContainerName=centsible-dev
+AutoUpdate=local
 Pod=centsible.pod
 WorkingDir=/workspace
 Exec=sleep infinity
 Environment=NEXT_TELEMETRY_DISABLED=1
-AutoUpdate=local
 
 [Service]
 Restart=on-failure

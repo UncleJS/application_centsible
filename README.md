@@ -72,6 +72,14 @@ bun run dev
 - API: http://localhost:4000
 - Swagger UI: http://localhost:4000/docs (dev only)
 
+For the Podman + systemd Quadlet stack, the published ports are different:
+
+- Web: http://localhost:10300
+- API: http://localhost:10301
+- Swagger UI: http://localhost:10301/docs
+
+The `centsible-dev` container is a utility/build container only. It runs **inside the same `centsible` pod**, but it does **not** publish the app on `10300/10301`; those ports belong to the serving containers (`centsible-mariadb`, `centsible-api`, `centsible-web`).
+
 [↑ Go to TOC](#table-of-contents)
 
 ---
@@ -130,6 +138,7 @@ application_centsible/
 │       ├── centsible.pod
 │       ├── centsible-api.container
 │       ├── centsible-db.volume
+│       ├── centsible-dev.container
 │       ├── centsible-web.container
 │       └── centsible-mariadb.container
 ├── .env.example      # Local development environment template

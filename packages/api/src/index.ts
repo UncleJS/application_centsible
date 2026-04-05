@@ -121,7 +121,10 @@ app
   .use(recurringIncomeRoutes)
   .use(reportRoutes)
   .use(exchangeRateRoutes)
-  .listen(config.port);
+  .listen({
+    hostname: "0.0.0.0",
+    port: config.port,
+  });
 
 console.log(`Centsible API running on http://localhost:${config.port}`);
 console.log(`Swagger docs at http://localhost:${config.port}/docs`);
