@@ -12,7 +12,7 @@ A self-hosted personal finance tracker. Track income and expenses, set monthly b
 
 - [Features](#features)
 - [Tech Stack](#tech-stack)
-- [Quick Start (Local Development)](#quick-start-local-development)
+- [Quick Start (Container Stack)](#quick-start-container-stack)
 - [Uninstall / Teardown](#uninstall--teardown)
 - [Documentation](#documentation)
 - [Project Layout](#project-layout)
@@ -49,36 +49,35 @@ A self-hosted personal finance tracker. Track income and expenses, set monthly b
 
 ---
 
-## Quick Start (Local Development)
+## Quick Start (Container Stack)
 
-**Prerequisites:** [Bun](https://bun.sh) >= 1.3, MariaDB running locally.
+**Prerequisites:** rootless [Podman](https://podman.io/), `systemd --user`, and Bun available on the host for repo tooling.
 
 ```bash
-# 1. Install dependencies
-bun install
+# 1. Create the Quadlet environment file
+mkdir -p ~/.config/containers/systemd
+cp infra/.env.centsible.example ~/.config/containers/systemd/.env.centsible
+# Edit ~/.config/containers/systemd/.env.centsible before continuing
 
-# 2. Configure environment
-cp .env.example .env
-# Edit .env — set DB credentials, JWT secrets
+# 2. Bootstrap the utility dev container used for verification
+podman build -t localhost/centsible-dev:latest -f Containerfile.dev .
+cp infra/quadlet/centsible-dev.container ~/.config/containers/systemd/centsible-dev.container
+systemctl --user daemon-reload
+systemctl --user start centsible-dev.service
 
-# 3. Run database migrations
-bun run db:migrate
-
-# 4. Start both API and web
-bun run dev
+# 3. Build and start the repo-configured stack
+./infra/deploy.sh build
+./infra/deploy.sh install
+./infra/deploy.sh start
 ```
-
-- Web: http://localhost:3000
-- API: http://localhost:4000
-- Swagger UI: http://localhost:4000/docs (dev only)
-
-For the Podman + systemd Quadlet stack, the published ports are different:
 
 - Web: http://localhost:10300
 - API: http://localhost:10301
 - Swagger UI: http://localhost:10301/docs
 
-The `centsible-dev` container is a utility/build container only. It runs **inside the same `centsible` pod**, but it does **not** publish the app on `10300/10301`; those ports belong to the serving containers (`centsible-mariadb`, `centsible-api`, `centsible-web`).
+The `centsible-dev` container is a utility/build container inside the `centsible` pod. It does **not** publish the app; the serving endpoints above belong to `centsible-web` and `centsible-api`.
+
+If you specifically want the direct non-container Bun workflow, see [docs/development.md](docs/development.md).
 
 [↑ Go to TOC](#table-of-contents)
 

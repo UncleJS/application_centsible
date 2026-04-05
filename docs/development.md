@@ -147,7 +147,7 @@ Copy `.env.example` to `.env` in the project root and fill in the values:
 cp .env.example .env
 ```
 
-| Variable | Default (dev) | Description |
+| Variable | Default (direct Bun dev) | Description |
 |---|---|---|
 | `DB_HOST` | `localhost` | MariaDB host |
 | `DB_PORT` | `3306` | MariaDB port |
@@ -168,12 +168,10 @@ cp .env.example .env
 
 ## Running Locally
 
-### Container-first note
-
 This repository uses **two different local workflows**:
 
-1. **Workspace dev servers** via `bun run dev` for the app directly on `:3000` and `:4000`
-2. **Podman + systemd Quadlet stack** for the repo-configured container deployment on `:10300` and `:10301`
+1. **Podman + systemd Quadlet stack (default / repo-standard)** on `:10300` and `:10301`
+2. **Workspace dev servers** via `bun run dev` on `:3000` and `:4000`
 
 The `centsible-dev` container is a **utility container** used for verification and image-build preparation. It runs **inside the same `centsible` pod** as the app stack, is expected to run `sleep infinity`, and accepts `podman exec` commands such as:
 
@@ -181,9 +179,33 @@ The `centsible-dev` container is a **utility container** used for verification a
 podman exec centsible-dev bun run verify:image
 ```
 
-It does **not** serve the web UI or API itself. The published app ports `10300/10301` belong to the Quadlet-managed stack (`centsible-pod`, `centsible-mariadb`, `centsible-api`, `centsible-web`).
+It does **not** serve the web UI or API itself. The published app ports `10300/10301` belong to the Quadlet-managed stack (`centsible-pod`, `centsible-mariadb`, `centsible-api`, `centsible-web`). MariaDB stays pod-internal on `3306`.
 
-### Full stack (recommended)
+### Podman + Quadlet stack (default)
+
+```bash
+# 1. Prepare the Quadlet env file
+mkdir -p ~/.config/containers/systemd
+cp infra/.env.centsible.example ~/.config/containers/systemd/.env.centsible
+# Edit ~/.config/containers/systemd/.env.centsible
+
+# 2. Bootstrap the utility dev container used for verify:image
+podman build -t localhost/centsible-dev:latest -f Containerfile.dev .
+cp infra/quadlet/centsible-dev.container ~/.config/containers/systemd/centsible-dev.container
+systemctl --user daemon-reload
+systemctl --user start centsible-dev.service
+
+# 3. Build and start the stack
+./infra/deploy.sh build
+./infra/deploy.sh install
+./infra/deploy.sh start
+```
+
+- Web: http://localhost:10300
+- API: http://localhost:10301
+- Swagger UI: http://localhost:10301/docs
+
+### Direct Bun workspace dev (alternate)
 
 ```bash
 bun install          # install all workspace dependencies
