@@ -77,9 +77,12 @@ export const useAuthStore = create<AuthState>((set) => {
     },
 
     hydrate: () => {
+      set({ isLoading: true });
       const stored = loadFromStorage();
       if (stored) {
-        set({ user: stored.user, isAuthenticated: true });
+        // Keep cached user for immediate UI hints, but do not mark authenticated
+        // until the server session is verified.
+        set({ user: stored.user, isAuthenticated: false, isLoading: true });
       }
 
       api
@@ -130,6 +133,9 @@ interface ExchangeRateState {
   fetchRates: (base: string) => Promise<void>;
 }
 
+let exchangeRatesInFlight: Promise<void> | null = null;
+let exchangeRatesInFlightBase: string | null = null;
+
 function loadCachedRates(base: string): ExchangeRateCache | null {
   if (typeof window === "undefined") return null;
   try {
@@ -159,6 +165,12 @@ export const useExchangeRateStore = create<ExchangeRateState>((set, get) => ({
   consecutiveFailures: 0,
 
   fetchRates: async (base: string) => {
+    if (exchangeRatesInFlight && exchangeRatesInFlightBase === base) {
+      await exchangeRatesInFlight;
+      return;
+    }
+
+    const run = async () => {
     const now = Date.now();
     const { fetchedAt, base: cachedBase, consecutiveFailures } = get();
 
@@ -206,6 +218,16 @@ export const useExchangeRateStore = create<ExchangeRateState>((set, get) => ({
           { id: "exchange-rate-failure", duration: Infinity }
         );
       }
+    }
+    };
+
+    exchangeRatesInFlightBase = base;
+    exchangeRatesInFlight = run();
+    try {
+      await exchangeRatesInFlight;
+    } finally {
+      exchangeRatesInFlight = null;
+      exchangeRatesInFlightBase = null;
     }
   },
 }));

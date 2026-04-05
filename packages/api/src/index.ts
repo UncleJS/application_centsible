@@ -14,7 +14,17 @@ import { recurringIncomeRoutes } from "./routes/recurring-income";
 import { reportRoutes } from "./routes/reports";
 import { exchangeRateRoutes } from "./routes/exchange-rates";
 
+const requestContext = new Elysia({ name: "request-context" }).derive(
+  { as: "global" },
+  ({ set }) => {
+    const requestId = crypto.randomUUID();
+    set.headers["x-request-id"] = requestId;
+    return { requestId, requestStartMs: Date.now() };
+  }
+);
+
 const app = new Elysia()
+  .use(requestContext)
   .use(
     cors({
       origin: config.webUrl,
@@ -23,54 +33,68 @@ const app = new Elysia()
     })
   )
   .use(generalRateLimit)
+  .onAfterHandle(({ request, set, requestId, requestStartMs }) => {
+    const status =
+      typeof set.status === "number"
+        ? set.status
+        : Number(set.status || 200);
+
+    console.log(
+      JSON.stringify({
+        requestId,
+        method: request.method,
+        path: new URL(request.url).pathname,
+        status,
+        durationMs: Date.now() - requestStartMs,
+        timestamp: new Date().toISOString(),
+      })
+    );
+  })
   // Global error handler — catch unexpected errors
-  .onError(({ code, error, set }) => {
+  .onError(({ code, error, set, requestId }) => {
     if (code === "VALIDATION") {
       set.status = 400;
-      return { error: String(error) };
+      return { error: String(error), requestId };
     }
     // Don't leak internal details in production
     const msg = error instanceof Error ? error.message : String(error);
     if (config.isProduction) {
-      console.error("Unhandled error:", msg);
+      console.error("Unhandled error:", JSON.stringify({ requestId, message: msg }));
       set.status = 500;
-      return { error: "Internal server error" };
+      return { error: "Internal server error", requestId };
     }
     // In dev, return the full error
     set.status = 500;
-    return { error: msg || "Internal server error" };
+    return { error: msg || "Internal server error", requestId };
   });
 
-// Swagger docs — only in non-production environments
-if (!config.isProduction) {
-  app.use(
-    swagger({
-      path: "/docs",
-      documentation: {
-        info: {
-          title: "Centsible API",
-          version: "0.1.0",
-          description: "Budget tracker API — manage transactions, budgets, subscriptions, savings goals, and forecasts.",
-        },
-        tags: [
-          { name: "Auth", description: "Authentication endpoints" },
-          { name: "Categories", description: "Transaction categories" },
-          { name: "Transactions", description: "Income and expense records" },
-          { name: "Budgets", description: "Monthly budget limits" },
-          { name: "Savings Goals", description: "Savings targets" },
-          { name: "Subscriptions", description: "Recurring subscriptions" },
-          { name: "Recurring Income", description: "Recurring income sources" },
-          { name: "Reports", description: "Reporting and forecasts" },
-          { name: "Exchange Rates", description: "Currency exchange rates" },
-        ],
+app.use(
+  swagger({
+    path: "/docs",
+    documentation: {
+      info: {
+        title: "Centsible API",
+        version: "0.1.0",
+        description: "Budget tracker API — manage transactions, budgets, subscriptions, savings goals, and forecasts.",
       },
-    })
-  );
+      tags: [
+        { name: "Auth", description: "Authentication endpoints" },
+        { name: "Categories", description: "Transaction categories" },
+        { name: "Transactions", description: "Income and expense records" },
+        { name: "Budgets", description: "Monthly budget limits" },
+        { name: "Savings Goals", description: "Savings targets" },
+        { name: "Subscriptions", description: "Recurring subscriptions" },
+        { name: "Recurring Income", description: "Recurring income sources" },
+        { name: "Reports", description: "Reporting and forecasts" },
+        { name: "Exchange Rates", description: "Currency exchange rates" },
+      ],
+    },
+  })
+);
 
-  app.get("/openapi.json", ({ set }) => {
-    set.redirect = "/docs/json";
-  });
-}
+app.get("/openapi.json", ({ set }) => {
+  set.redirect = "/docs/json";
+});
 
 app
   .use(
@@ -100,8 +124,6 @@ app
   .listen(config.port);
 
 console.log(`Centsible API running on http://localhost:${config.port}`);
-if (!config.isProduction) {
-  console.log(`Swagger docs at http://localhost:${config.port}/docs`);
-}
+console.log(`Swagger docs at http://localhost:${config.port}/docs`);
 
 export type App = typeof app;

@@ -55,6 +55,9 @@ interface Budget {
   categoryType?: string | null;
   amount: string;
   spent?: string;
+  amountInUserCurrency?: string;
+  spentInUserCurrency?: string;
+  userCurrency?: string;
   year: number;
   month: number;
 }
@@ -141,8 +144,8 @@ function BudgetCard({
   isPastMonth,
   isIncome,
 }: BudgetCardProps) {
-  const amount = parseFloat(budget.amount);
-  const actual = parseFloat(budget.spent ?? "0");
+  const amount = parseFloat(budget.amountInUserCurrency ?? budget.amount);
+  const actual = parseFloat(budget.spentInUserCurrency ?? budget.spent ?? "0");
   const pct = amount > 0 ? Math.min(Math.round((actual / amount) * 100), 100) : 0;
 
   const barColor = isIncome
@@ -210,9 +213,9 @@ function BudgetCard({
         <div className="flex items-center justify-between">
           <span className="text-sm font-mono text-zinc-300">
             <span className="text-xs text-zinc-600 mr-1">{spentLabel}</span>
-            {formatCurrency(budget.spent ?? "0", currency)}{" "}
+            {formatCurrency(budget.spentInUserCurrency ?? budget.spent ?? "0", currency)}{" "}
             <span className="text-zinc-600">/</span>{" "}
-            {formatCurrency(budget.amount, currency)}
+            {formatCurrency(budget.amountInUserCurrency ?? budget.amount, currency)}
           </span>
           <span className={`text-xs font-semibold font-mono ${pctColor}`}>
             {pct}%
@@ -495,66 +498,80 @@ export default function BudgetsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
 
-  const fetchBudgets = useCallback(async () => {
+  const fetchBudgets = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     try {
-      const res = await api.getBudgets(year, month);
+      const res = await api.getBudgets(year, month, { signal });
       setBudgets(res.data ?? []);
     } catch (err: unknown) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
       toast.error(
         err instanceof Error ? err.message : "Failed to load budgets."
       );
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   }, [year, month]);
 
-  const fetchCategories = useCallback(async () => {
+  const fetchCategories = useCallback(async (signal?: AbortSignal) => {
     try {
-      const res = await api.getCategories();
+      const res = await api.getCategories({ signal });
       setCategories(res.data ?? []);
-    } catch {
+    } catch (err: unknown) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
       // non-critical
     }
   }, []);
 
-  const fetchSubscriptions = useCallback(async () => {
+  const fetchSubscriptions = useCallback(async (signal?: AbortSignal) => {
     try {
-      const res = await api.getSubscriptions();
+      const res = await api.getSubscriptions({ signal });
       setSubscriptions(res.data ?? []);
-    } catch {
+    } catch (err: unknown) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
       // non-critical
     }
   }, []);
 
-  const fetchRecurringIncome = useCallback(async () => {
+  const fetchRecurringIncome = useCallback(async (signal?: AbortSignal) => {
     try {
-      const res = await api.getRecurringIncome();
+      const res = await api.getRecurringIncome({ signal });
       setRecurringIncome(res.data ?? []);
-    } catch {
+    } catch (err: unknown) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
       // non-critical
     }
   }, []);
 
-  const fetchSavingsGoals = useCallback(async () => {
+  const fetchSavingsGoals = useCallback(async (signal?: AbortSignal) => {
     try {
-      const res = await api.getSavingsGoals();
+      const res = await api.getSavingsGoals({ signal });
       setSavingsGoals(res.data ?? []);
-    } catch {
+    } catch (err: unknown) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
       // non-critical
     }
   }, []);
 
   useEffect(() => {
-    fetchBudgets();
+    const controller = new AbortController();
+    fetchBudgets(controller.signal);
+    return () => controller.abort();
   }, [fetchBudgets]);
 
   useEffect(() => {
-    fetchCategories();
-    fetchSubscriptions();
-    fetchRecurringIncome();
-    fetchSavingsGoals();
-    fetchRates(currency);
+    const controller = new AbortController();
+    Promise.all([
+      fetchCategories(controller.signal),
+      fetchSubscriptions(controller.signal),
+      fetchRecurringIncome(controller.signal),
+      fetchSavingsGoals(controller.signal),
+      fetchRates(currency),
+    ]).catch(() => {
+      // handled by individual loaders
+    });
+
+    return () => controller.abort();
   }, [fetchCategories, fetchSubscriptions, fetchRecurringIncome, fetchSavingsGoals, fetchRates, currency]);
 
   function prevMonth() {
@@ -606,22 +623,22 @@ export default function BudgetsPage() {
 
   // Expense totals
   const totalBudgetedExpenses = expenseBudgets.reduce(
-    (sum, b) => sum + parseFloat(b.amount),
+    (sum, b) => sum + parseFloat(b.amountInUserCurrency ?? b.amount),
     0
   );
   const totalSpentExpenses = expenseBudgets.reduce(
-    (sum, b) => sum + parseFloat(b.spent ?? "0"),
+    (sum, b) => sum + parseFloat(b.spentInUserCurrency ?? b.spent ?? "0"),
     0
   );
   const totalRemainingExpenses = totalBudgetedExpenses - totalSpentExpenses;
 
   // Income totals
   const totalBudgetedIncome = incomeBudgets.reduce(
-    (sum, b) => sum + parseFloat(b.amount),
+    (sum, b) => sum + parseFloat(b.amountInUserCurrency ?? b.amount),
     0
   );
   const totalReceivedIncome = incomeBudgets.reduce(
-    (sum, b) => sum + parseFloat(b.spent ?? "0"),
+    (sum, b) => sum + parseFloat(b.spentInUserCurrency ?? b.spent ?? "0"),
     0
   );
   const totalIncomeSurplus = totalReceivedIncome - totalBudgetedIncome;
@@ -908,7 +925,9 @@ export default function BudgetsPage() {
         month={month}
         currency={currency}
         recurringIncome={recurringIncome}
-        onSuccess={fetchBudgets}
+        onSuccess={() => {
+          void fetchBudgets();
+        }}
       />
     </div>
   );

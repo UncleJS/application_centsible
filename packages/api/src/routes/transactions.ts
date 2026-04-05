@@ -218,9 +218,24 @@ export const transactionRoutes = new Elysia({
         }
       }
 
+      const updateData: Partial<typeof body> = {};
+      if (body.categoryId !== undefined) updateData.categoryId = body.categoryId;
+      if (body.type !== undefined) updateData.type = body.type;
+      if (body.amount !== undefined) updateData.amount = body.amount;
+      if (body.currency !== undefined) updateData.currency = body.currency;
+      if (body.description !== undefined) updateData.description = body.description;
+      if (body.date !== undefined) updateData.date = body.date;
+      if (body.subscriptionId !== undefined) updateData.subscriptionId = body.subscriptionId;
+      if (body.isRecurring !== undefined) updateData.isRecurring = body.isRecurring;
+
+      if (Object.keys(updateData).length === 0) {
+        set.status = 400;
+        return { error: "No fields to update" };
+      }
+
       await db
         .update(schema.transactions)
-        .set(body)
+        .set(updateData)
         .where(and(eq(schema.transactions.id, id), eq(schema.transactions.userId, user.id)));
 
       const [updated] = await db

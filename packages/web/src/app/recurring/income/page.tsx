@@ -13,7 +13,11 @@ import {
 import { toast } from "sonner";
 
 import { BILLING_CYCLE_LABELS, BILLING_CYCLE_MONTHS, SUPPORTED_CURRENCIES } from "@centsible/shared";
-import type { RecurringIncome } from "@centsible/shared";
+import type {
+  BillingCycle,
+  CreateRecurringIncomeInput,
+  RecurringIncome,
+} from "@centsible/shared";
 import { AmountBadge } from "@/components/ui/amount-badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -77,7 +81,7 @@ function RecurringIncomeDialog({
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
   const [riCurrency, setRiCurrency] = useState(currency);
-  const [billingCycle, setBillingCycle] = useState<string>("monthly");
+  const [billingCycle, setBillingCycle] = useState<BillingCycle>("monthly");
   const [categoryId, setCategoryId] = useState<string>("none");
   const [autoRenew, setAutoRenew] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -119,7 +123,7 @@ function RecurringIncomeDialog({
       return;
     }
 
-    const body = {
+    const body: CreateRecurringIncomeInput = {
       name: name.trim(),
       description: description.trim() || null,
       amount: parsed.toFixed(2),
@@ -226,7 +230,7 @@ function RecurringIncomeDialog({
             <Label htmlFor="ri-cycle" className="text-zinc-300">
               Billing cycle
             </Label>
-            <Select value={billingCycle} onValueChange={setBillingCycle}>
+            <Select value={billingCycle} onValueChange={(v) => setBillingCycle(v as BillingCycle)}>
               <SelectTrigger id="ri-cycle" className="border-zinc-700 bg-zinc-800/50 text-zinc-100">
                 <SelectValue />
               </SelectTrigger>

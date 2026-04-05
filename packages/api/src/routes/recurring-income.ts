@@ -148,9 +148,23 @@ export const recurringIncomeRoutes = new Elysia({
         }
       }
 
+      const updateData: Partial<typeof body> = {};
+      if (body.categoryId !== undefined) updateData.categoryId = body.categoryId;
+      if (body.name !== undefined) updateData.name = body.name;
+      if (body.description !== undefined) updateData.description = body.description;
+      if (body.amount !== undefined) updateData.amount = body.amount;
+      if (body.currency !== undefined) updateData.currency = body.currency;
+      if (body.billingCycle !== undefined) updateData.billingCycle = body.billingCycle;
+      if (body.autoRenew !== undefined) updateData.autoRenew = body.autoRenew;
+
+      if (Object.keys(updateData).length === 0) {
+        set.status = 400;
+        return { error: "No fields to update" };
+      }
+
       await db
         .update(schema.recurringIncome)
-        .set(body)
+        .set(updateData)
         .where(and(eq(schema.recurringIncome.id, id), eq(schema.recurringIncome.userId, user.id)));
 
       const [updated] = await db

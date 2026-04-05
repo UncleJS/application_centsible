@@ -11,6 +11,17 @@ import type {
   RecurringIncome,
   MonthlySummary,
   ForecastMonth,
+  CreateTransactionInput,
+  UpdateTransactionInput,
+  CreateBudgetInput,
+  UpdateBudgetInput,
+  CreateSavingsGoalInput,
+  UpdateSavingsGoalInput,
+  ContributeSavingsGoalInput,
+  CreateSubscriptionInput,
+  UpdateSubscriptionInput,
+  CreateRecurringIncomeInput,
+  UpdateRecurringIncomeInput,
 } from "@centsible/shared";
 
 interface RequestOptions extends RequestInit {
@@ -189,8 +200,8 @@ class ApiClient {
   }
 
   // ── Categories ──
-  async getCategories() {
-    return this.request<{ data: Category[] }>("/categories");
+  async getCategories(options?: RequestOptions) {
+    return this.request<{ data: Category[] }>("/categories", options);
   }
 
   async createCategory(body: { name: string; icon?: string | null; color?: string | null; type: "income" | "expense" }) {
@@ -212,19 +223,19 @@ class ApiClient {
   }
 
   // ── Transactions ──
-  async getTransactions(params?: Record<string, string>) {
+  async getTransactions(params?: Record<string, string>, options?: RequestOptions) {
     const query = params ? "?" + new URLSearchParams(params).toString() : "";
-    return this.request<PaginatedResponse<Transaction>>(`/transactions${query}`);
+    return this.request<PaginatedResponse<Transaction>>(`/transactions${query}`, options);
   }
 
-  async createTransaction(body: Record<string, unknown>) {
+  async createTransaction(body: CreateTransactionInput) {
     return this.request<{ data: Transaction }>("/transactions", {
       method: "POST",
       body: JSON.stringify(body),
     });
   }
 
-  async updateTransaction(id: number, body: Record<string, unknown>) {
+  async updateTransaction(id: number, body: UpdateTransactionInput) {
     return this.request<{ data: Transaction }>(`/transactions/${id}`, {
       method: "PATCH",
       body: JSON.stringify(body),
@@ -236,21 +247,21 @@ class ApiClient {
   }
 
   // ── Budgets ──
-  async getBudgets(year?: number, month?: number) {
+  async getBudgets(year?: number, month?: number, options?: RequestOptions) {
     const params = new URLSearchParams();
     if (year) params.set("year", String(year));
     if (month) params.set("month", String(month));
-    return this.request<{ data: (Budget & { categoryName?: string | null; spent?: string })[] }>(`/budgets?${params}`);
+    return this.request<{ data: (Budget & { categoryName?: string | null; spent?: string; amountInUserCurrency?: string; spentInUserCurrency?: string; userCurrency?: string })[] }>(`/budgets?${params}`, options);
   }
 
-  async createBudget(body: Record<string, unknown>) {
+  async createBudget(body: CreateBudgetInput) {
     return this.request<{ data: Budget }>("/budgets", {
       method: "POST",
       body: JSON.stringify(body),
     });
   }
 
-  async updateBudget(id: number, body: { amount: string }) {
+  async updateBudget(id: number, body: UpdateBudgetInput) {
     return this.request<{ data: Budget }>(`/budgets/${id}`, {
       method: "PATCH",
       body: JSON.stringify(body),
@@ -262,29 +273,29 @@ class ApiClient {
   }
 
   // ── Savings Goals ──
-  async getSavingsGoals() {
-    return this.request<{ data: SavingsGoal[] }>("/savings-goals");
+  async getSavingsGoals(options?: RequestOptions) {
+    return this.request<{ data: SavingsGoal[] }>("/savings-goals", options);
   }
 
   async getSavingsGoal(id: number) {
     return this.request<{ data: SavingsGoal & { contributions?: SavingsContribution[] } }>(`/savings-goals/${id}`);
   }
 
-  async createSavingsGoal(body: Record<string, unknown>) {
+  async createSavingsGoal(body: CreateSavingsGoalInput) {
     return this.request<{ data: SavingsGoal }>("/savings-goals", {
       method: "POST",
       body: JSON.stringify(body),
     });
   }
 
-  async updateSavingsGoal(id: number, body: Record<string, unknown>) {
+  async updateSavingsGoal(id: number, body: UpdateSavingsGoalInput) {
     return this.request<{ data: SavingsGoal }>(`/savings-goals/${id}`, {
       method: "PATCH",
       body: JSON.stringify(body),
     });
   }
 
-  async contributeSavingsGoal(id: number, body: Record<string, unknown>) {
+  async contributeSavingsGoal(id: number, body: ContributeSavingsGoalInput) {
     return this.request<{ data: SavingsGoal }>(`/savings-goals/${id}/contribute`, {
       method: "POST",
       body: JSON.stringify(body),
@@ -296,8 +307,8 @@ class ApiClient {
   }
 
   // ── Subscriptions ──
-  async getSubscriptions() {
-    return this.request<{ data: Subscription[] }>("/subscriptions");
+  async getSubscriptions(options?: RequestOptions) {
+    return this.request<{ data: Subscription[] }>("/subscriptions", options);
   }
 
   async getUpcomingSubscriptions(days?: number) {
@@ -305,14 +316,14 @@ class ApiClient {
     return this.request<{ data: Subscription[] }>(`/subscriptions/upcoming${params}`);
   }
 
-  async createSubscription(body: Record<string, unknown>) {
+  async createSubscription(body: CreateSubscriptionInput) {
     return this.request<{ data: Subscription }>("/subscriptions", {
       method: "POST",
       body: JSON.stringify(body),
     });
   }
 
-  async updateSubscription(id: number, body: Record<string, unknown>) {
+  async updateSubscription(id: number, body: UpdateSubscriptionInput) {
     return this.request<{ data: Subscription }>(`/subscriptions/${id}`, {
       method: "PATCH",
       body: JSON.stringify(body),
@@ -324,18 +335,18 @@ class ApiClient {
   }
 
   // ── Recurring Income ──
-  async getRecurringIncome() {
-    return this.request<{ data: RecurringIncome[] }>("/recurring-income");
+  async getRecurringIncome(options?: RequestOptions) {
+    return this.request<{ data: RecurringIncome[] }>("/recurring-income", options);
   }
 
-  async createRecurringIncome(body: Record<string, unknown>) {
+  async createRecurringIncome(body: CreateRecurringIncomeInput) {
     return this.request<{ data: RecurringIncome }>("/recurring-income", {
       method: "POST",
       body: JSON.stringify(body),
     });
   }
 
-  async updateRecurringIncome(id: number, body: Record<string, unknown>) {
+  async updateRecurringIncome(id: number, body: UpdateRecurringIncomeInput) {
     return this.request<{ data: RecurringIncome }>(`/recurring-income/${id}`, {
       method: "PATCH",
       body: JSON.stringify(body),
@@ -347,11 +358,11 @@ class ApiClient {
   }
 
   // ── Reports ──
-  async getMonthlySummary(year?: number, month?: number) {
+  async getMonthlySummary(year?: number, month?: number, options?: RequestOptions) {
     const params = new URLSearchParams();
     if (year) params.set("year", String(year));
     if (month) params.set("month", String(month));
-    return this.request<{ data: MonthlySummary }>(`/reports/summary?${params}`);
+    return this.request<{ data: MonthlySummary }>(`/reports/summary?${params}`, options);
   }
 
   async getForecast(months?: number) {
@@ -359,9 +370,9 @@ class ApiClient {
     return this.request<{ data: ForecastMonth[] }>(`/reports/forecast${params}`);
   }
 
-  async getTrend(months?: number) {
+  async getTrend(months?: number, options?: RequestOptions) {
     const params = months ? `?months=${months}` : "";
-    return this.request<{ data: { year: number; month: number; income: string; expenses: string; net: string }[] }>(`/reports/trend${params}`);
+    return this.request<{ data: { year: number; month: number; income: string; expenses: string; net: string }[] }>(`/reports/trend${params}`, options);
   }
 
   async exportCsv(year: number, month: number) {

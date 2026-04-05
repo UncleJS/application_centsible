@@ -100,9 +100,19 @@ export const categoryRoutes = new Elysia({
         return { error: "Category not found" };
       }
 
+      const updateData: Partial<typeof body> = {};
+      if (body.name !== undefined) updateData.name = body.name;
+      if (body.icon !== undefined) updateData.icon = body.icon;
+      if (body.color !== undefined) updateData.color = body.color;
+
+      if (Object.keys(updateData).length === 0) {
+        set.status = 400;
+        return { error: "No fields to update" };
+      }
+
       await db
         .update(schema.categories)
-        .set(body)
+        .set(updateData)
         .where(and(eq(schema.categories.id, id), eq(schema.categories.userId, user.id)));
 
       const [updated] = await db

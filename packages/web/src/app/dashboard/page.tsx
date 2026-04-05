@@ -50,6 +50,9 @@ interface Budget {
   categoryName?: string | null;
   amount: string;
   spent?: string;
+  amountInUserCurrency?: string;
+  spentInUserCurrency?: string;
+  userCurrency?: string;
   year: number;
   month: number;
 }
@@ -174,16 +177,18 @@ export default function DashboardPage() {
   const [recurringIncome, setRecurringIncome] = useState<RecurringIncome[]>([]);
 
   useEffect(() => {
+    const controller = new AbortController();
+
     async function load() {
       try {
         setLoading(true);
         setError(null);
         const [summaryRes, budgetsRes, subsRes, goalsRes, recurringIncomeRes] = await Promise.all([
-          api.getMonthlySummary(),
-          api.getBudgets(),
+          api.getMonthlySummary(undefined, undefined, { signal: controller.signal }),
+          api.getBudgets(undefined, undefined, { signal: controller.signal }),
           api.getUpcomingSubscriptions(30),
-          api.getSavingsGoals(),
-          api.getRecurringIncome(),
+          api.getSavingsGoals({ signal: controller.signal }),
+          api.getRecurringIncome({ signal: controller.signal }),
         ]);
         setSummary(summaryRes.data);
         setBudgets(budgetsRes.data);
@@ -191,14 +196,17 @@ export default function DashboardPage() {
         setSavingsGoals(goalsRes.data);
         setRecurringIncome(recurringIncomeRes.data ?? []);
       } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
         setError(
           err instanceof Error ? err.message : "Failed to load dashboard data."
         );
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) setLoading(false);
       }
     }
     load();
+
+    return () => controller.abort();
   }, []);
 
   const totalMonthlyRecurringIncome = recurringIncome.reduce((sum, item) => {
@@ -218,8 +226,14 @@ export default function DashboardPage() {
 
   // Compute budget usage % from loaded budgets
   const budgetUsagePct = (() => {
-    const totalBudgeted = budgets.reduce((s, b) => s + parseFloat(b.amount), 0);
-    const totalSpent = budgets.reduce((s, b) => s + parseFloat(b.spent ?? "0"), 0);
+    const totalBudgeted = budgets.reduce(
+      (s, b) => s + parseFloat(b.amountInUserCurrency ?? b.amount),
+      0
+    );
+    const totalSpent = budgets.reduce(
+      (s, b) => s + parseFloat(b.spentInUserCurrency ?? b.spent ?? "0"),
+      0
+    );
     return totalBudgeted > 0 ? (totalSpent / totalBudgeted) * 100 : 0;
   })();
 

@@ -57,16 +57,21 @@ export const refreshTokens = mysqlTable(
     userId: int("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
+    tokenId: varchar("token_id", { length: 64 }).notNull(),
+    familyId: varchar("family_id", { length: 64 }).notNull(),
     tokenHash: varchar("token_hash", { length: 255 }).notNull(),
     expiresAt: datetime("expires_at", { mode: "date" }).notNull(),
     createdAt: datetime("created_at", { mode: "date" })
       .notNull()
       .default(sql`CURRENT_TIMESTAMP`),
     revokedAt: datetime("revoked_at", { mode: "date" }),
+    revokedReason: varchar("revoked_reason", { length: 32 }),
   },
   (table) => [
     index("refresh_tokens_user_idx").on(table.userId),
     index("refresh_tokens_hash_idx").on(table.tokenHash),
+    uniqueIndex("refresh_tokens_token_id_unique").on(table.tokenId),
+    index("refresh_tokens_family_idx").on(table.userId, table.familyId),
   ]
 );
 
@@ -251,6 +256,33 @@ export const recurringIncome = mysqlTable(
   },
   (table) => [
     index("recurring_income_user_idx").on(table.userId),
+  ]
+);
+
+// ── Rate Limit Counters ──
+
+export const rateLimitCounters = mysqlTable(
+  "rate_limit_counters",
+  {
+    id: int("id").primaryKey().autoincrement(),
+    scope: varchar("scope", { length: 32 }).notNull(),
+    identifier: varchar("identifier", { length: 255 }).notNull(),
+    windowStart: datetime("window_start", { mode: "date" }).notNull(),
+    requestCount: int("request_count").notNull().default(0),
+    ...archivable,
+  },
+  (table) => [
+    uniqueIndex("rate_limit_scope_ident_window_unique").on(
+      table.scope,
+      table.identifier,
+      table.windowStart
+    ),
+    index("rate_limit_lookup_idx").on(
+      table.scope,
+      table.identifier,
+      table.windowStart
+    ),
+    index("rate_limit_archived_updated_idx").on(table.archivedAt, table.updatedAt),
   ]
 );
 

@@ -1,3 +1,9 @@
+function resolveLocale(): string {
+  if (typeof navigator === "undefined") return "en-US";
+  const preferred = navigator.languages?.[0] || navigator.language;
+  return preferred || "en-US";
+}
+
 /**
  * Format a date string to YYYY-MM-DD HH:mm:ss in local time
  */
@@ -20,6 +26,7 @@ export function formatDate(dateString: string): string {
   // If already in YYYY-MM-DD format, return as-is
   if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) return dateString;
   const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return "";
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, "0");
   const d = String(date.getDate()).padStart(2, "0");
@@ -31,7 +38,7 @@ export function formatDate(dateString: string): string {
  */
 export function formatCurrency(amount: string | number, currency: string): string {
   const num = typeof amount === "string" ? parseFloat(amount) : amount;
-  return new Intl.NumberFormat("en-GB", {
+  return new Intl.NumberFormat(resolveLocale(), {
     style: "currency",
     currency,
     minimumFractionDigits: 2,
@@ -43,7 +50,7 @@ export function formatCurrency(amount: string | number, currency: string): strin
  * Get the month name
  */
 export function getMonthName(month: number): string {
-  return new Date(2024, month - 1, 1).toLocaleDateString("en-GB", {
+  return new Date(2000, month - 1, 1).toLocaleDateString(resolveLocale(), {
     month: "long",
   });
 }

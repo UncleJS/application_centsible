@@ -28,6 +28,12 @@ export const config = {
   accessTokenExp: "15m" as const,
   refreshTokenDays: 7,
 
+  // Rate limits
+  rateLimitWindowMs: Number(process.env.RATE_LIMIT_WINDOW_MS) || 60_000,
+  authRateLimitMax: Number(process.env.AUTH_RATE_LIMIT_MAX) || 10,
+  generalRateLimitMax: Number(process.env.GENERAL_RATE_LIMIT_MAX) || 100,
+  trustProxyHeaders: process.env.TRUST_PROXY_HEADERS === "true",
+
   // CORS
   webUrl: process.env.WEB_URL || "http://localhost:3000",
 

@@ -202,9 +202,26 @@ export const subscriptionRoutes = new Elysia({
         }
       }
 
+      const updateData: Partial<typeof body> = {};
+      if (body.categoryId !== undefined) updateData.categoryId = body.categoryId;
+      if (body.name !== undefined) updateData.name = body.name;
+      if (body.description !== undefined) updateData.description = body.description;
+      if (body.amount !== undefined) updateData.amount = body.amount;
+      if (body.currency !== undefined) updateData.currency = body.currency;
+      if (body.billingCycle !== undefined) updateData.billingCycle = body.billingCycle;
+      if (body.nextRenewalDate !== undefined) updateData.nextRenewalDate = body.nextRenewalDate;
+      if (body.startDate !== undefined) updateData.startDate = body.startDate;
+      if (body.url !== undefined) updateData.url = body.url;
+      if (body.autoRenew !== undefined) updateData.autoRenew = body.autoRenew;
+
+      if (Object.keys(updateData).length === 0) {
+        set.status = 400;
+        return { error: "No fields to update" };
+      }
+
       await db
         .update(schema.subscriptions)
-        .set(body)
+        .set(updateData)
         .where(and(eq(schema.subscriptions.id, id), eq(schema.subscriptions.userId, user.id)));
 
       const [updated] = await db

@@ -1,7 +1,7 @@
 import { Elysia, t } from "elysia";
 import { jwt } from "@elysiajs/jwt";
 import { db, schema } from "../db";
-import { eq, and, isNull, gt, lte, or, isNotNull } from "drizzle-orm";
+import { eq, and, isNull, lte } from "drizzle-orm";
 import { SUPPORTED_CURRENCIES } from "@centsible/shared";
 import { hash, verify } from "argon2";
 import {
@@ -12,7 +12,6 @@ import { config } from "../config";
 import { authRateLimit } from "../middleware/rate-limit";
 import { authMiddleware } from "../middleware/auth";
 import {
-  ACCESS_TOKEN_COOKIE,
   CSRF_TOKEN_COOKIE,
   REFRESH_TOKEN_COOKIE,
   clearSessionCookies,
@@ -20,18 +19,59 @@ import {
   setSessionCookies,
 } from "../auth/session";
 
-const REFRESH_TOKEN_QUERY_LIMIT = 10;
+type RefreshTokenPayload = {
+  sub: string;
+  jti: string;
+  fid: string;
+};
 
-async function pruneRefreshTokens(userId: number): Promise<void> {
+function generateTokenId(): string {
+  return crypto.randomUUID().replace(/-/g, "");
+}
+
+function parseRefreshPayload(payload: unknown): RefreshTokenPayload | null {
+  if (!payload || typeof payload !== "object") return null;
+  const parsed = payload as Record<string, unknown>;
+  if (
+    typeof parsed.sub !== "string" ||
+    typeof parsed.jti !== "string" ||
+    typeof parsed.fid !== "string"
+  ) {
+    return null;
+  }
+  return {
+    sub: parsed.sub,
+    jti: parsed.jti,
+    fid: parsed.fid,
+  };
+}
+
+async function archiveStaleRefreshTokens(userId: number): Promise<void> {
   await db
-    .delete(schema.refreshTokens)
+    .update(schema.refreshTokens)
+    .set({ revokedAt: new Date(), revokedReason: "expired" })
     .where(
       and(
         eq(schema.refreshTokens.userId, userId),
-        or(
-          isNotNull(schema.refreshTokens.revokedAt),
-          lte(schema.refreshTokens.expiresAt, new Date())
-        )
+        isNull(schema.refreshTokens.revokedAt),
+        lte(schema.refreshTokens.expiresAt, new Date())
+      )
+    );
+}
+
+async function revokeTokenFamily(
+  userId: number,
+  familyId: string,
+  reason: "replay-detected" | "logout" | "compromised"
+): Promise<void> {
+  await db
+    .update(schema.refreshTokens)
+    .set({ revokedAt: new Date(), revokedReason: reason })
+    .where(
+      and(
+        eq(schema.refreshTokens.userId, userId),
+        eq(schema.refreshTokens.familyId, familyId),
+        isNull(schema.refreshTokens.revokedAt)
       )
     );
 }
@@ -104,12 +144,20 @@ export const authRoutes = new Elysia({ prefix: "/auth", detail: { tags: ["Auth"]
 
       // Generate tokens
       const accessToken = await jwt.sign({ sub: String(userId) });
-      const refreshToken = await refreshJwt.sign({ sub: String(userId) });
+      const tokenId = generateTokenId();
+      const familyId = generateTokenId();
+      const refreshToken = await refreshJwt.sign({
+        sub: String(userId),
+        jti: tokenId,
+        fid: familyId,
+      });
 
       // Store refresh token hash
       const tokenHash = await hash(refreshToken);
       await db.insert(schema.refreshTokens).values({
         userId,
+        tokenId,
+        familyId,
         tokenHash,
         expiresAt: new Date(Date.now() + config.refreshTokenDays * 24 * 60 * 60 * 1000),
       });
@@ -163,12 +211,20 @@ export const authRoutes = new Elysia({ prefix: "/auth", detail: { tags: ["Auth"]
       }
 
       const accessToken = await jwt.sign({ sub: String(user.id) });
-      const refreshToken = await refreshJwt.sign({ sub: String(user.id) });
+      const tokenId = generateTokenId();
+      const familyId = generateTokenId();
+      const refreshToken = await refreshJwt.sign({
+        sub: String(user.id),
+        jti: tokenId,
+        fid: familyId,
+      });
 
       const tokenHash = await hash(refreshToken);
-      await pruneRefreshTokens(user.id);
+      await archiveStaleRefreshTokens(user.id);
       await db.insert(schema.refreshTokens).values({
         userId: user.id,
+        tokenId,
+        familyId,
         tokenHash,
         expiresAt: new Date(Date.now() + config.refreshTokenDays * 24 * 60 * 60 * 1000),
       });
@@ -209,66 +265,113 @@ export const authRoutes = new Elysia({ prefix: "/auth", detail: { tags: ["Auth"]
         return { error: "Invalid refresh token" };
       }
 
-      const payload = await refreshJwt.verify(refreshToken);
-      if (!payload || typeof payload.sub !== "string") {
+      const payload = parseRefreshPayload(await refreshJwt.verify(refreshToken));
+      if (!payload) {
         set.status = 401;
         return { error: "Invalid refresh token" };
       }
 
       const userId = Number(payload.sub);
+      if (Number.isNaN(userId) || userId <= 0) {
+        set.status = 401;
+        return { error: "Invalid refresh token" };
+      }
 
-      await pruneRefreshTokens(userId);
+      await archiveStaleRefreshTokens(userId);
 
-      // Verify refresh token exists, is not revoked, and is not expired
-      const storedTokens = await db
+      const [stored] = await db
         .select()
         .from(schema.refreshTokens)
         .where(
           and(
             eq(schema.refreshTokens.userId, userId),
-            isNull(schema.refreshTokens.revokedAt),
-            gt(schema.refreshTokens.expiresAt, new Date())
+            eq(schema.refreshTokens.tokenId, payload.jti)
           )
         )
-        .limit(REFRESH_TOKEN_QUERY_LIMIT);
+        .limit(1);
 
-      let validToken = false;
-      let matchedTokenId: number | null = null;
-
-      for (const stored of storedTokens) {
-        try {
-          const matches = await verify(stored.tokenHash, refreshToken);
-          if (matches) {
-            validToken = true;
-            matchedTokenId = stored.id;
-            break;
-          }
-        } catch {
-          continue;
-        }
-      }
-
-      if (!validToken || !matchedTokenId) {
+      if (!stored) {
         set.status = 401;
         return { error: "Invalid refresh token" };
       }
 
-      // Revoke old token
-      await db
-        .update(schema.refreshTokens)
-        .set({ revokedAt: new Date() })
-        .where(eq(schema.refreshTokens.id, matchedTokenId));
+      let hashMatches = false;
+      try {
+        hashMatches = await verify(stored.tokenHash, refreshToken);
+      } catch {
+        hashMatches = false;
+      }
 
-      // Issue new tokens
-      const newAccessToken = await jwt.sign({ sub: String(userId) });
-      const newRefreshToken = await refreshJwt.sign({ sub: String(userId) });
+      if (!hashMatches) {
+        await revokeTokenFamily(userId, payload.fid, "replay-detected");
+        clearSessionCookies(cookie as Record<string, any>);
+        set.status = 401;
+        return { error: "Refresh token replay detected. Please sign in again." };
+      }
 
-      const newTokenHash = await hash(newRefreshToken);
-      await db.insert(schema.refreshTokens).values({
-        userId,
-        tokenHash: newTokenHash,
-        expiresAt: new Date(Date.now() + config.refreshTokenDays * 24 * 60 * 60 * 1000),
+      if (stored.revokedAt || stored.expiresAt <= new Date()) {
+        await revokeTokenFamily(userId, payload.fid, "replay-detected");
+        clearSessionCookies(cookie as Record<string, any>);
+        set.status = 401;
+        return { error: "Session revoked. Please sign in again." };
+      }
+
+      const rotation = await db.transaction(async (tx) => {
+        const [active] = await tx
+          .select({
+            id: schema.refreshTokens.id,
+            revokedAt: schema.refreshTokens.revokedAt,
+            expiresAt: schema.refreshTokens.expiresAt,
+          })
+          .from(schema.refreshTokens)
+          .where(
+            and(
+              eq(schema.refreshTokens.id, stored.id),
+              eq(schema.refreshTokens.userId, userId),
+              eq(schema.refreshTokens.familyId, payload.fid)
+            )
+          )
+          .limit(1);
+
+        if (!active || active.revokedAt || active.expiresAt <= new Date()) {
+          return { ok: false as const };
+        }
+
+        await tx
+          .update(schema.refreshTokens)
+          .set({ revokedAt: new Date(), revokedReason: "rotated" })
+          .where(eq(schema.refreshTokens.id, stored.id));
+
+        const newTokenId = generateTokenId();
+        const newRefreshToken = await refreshJwt.sign({
+          sub: String(userId),
+          jti: newTokenId,
+          fid: payload.fid,
+        });
+        const newTokenHash = await hash(newRefreshToken);
+
+        await tx.insert(schema.refreshTokens).values({
+          userId,
+          tokenId: newTokenId,
+          familyId: payload.fid,
+          tokenHash: newTokenHash,
+          expiresAt: new Date(
+            Date.now() + config.refreshTokenDays * 24 * 60 * 60 * 1000
+          ),
+        });
+
+        return { ok: true as const, newRefreshToken };
       });
+
+      if (!rotation.ok) {
+        await revokeTokenFamily(userId, payload.fid, "replay-detected");
+        clearSessionCookies(cookie as Record<string, any>);
+        set.status = 401;
+        return { error: "Session revoked. Please sign in again." };
+      }
+
+      const newAccessToken = await jwt.sign({ sub: String(userId) });
+      const newRefreshToken = rotation.newRefreshToken;
 
       const csrfToken = generateCsrfToken();
       setSessionCookies(
@@ -312,39 +415,49 @@ export const authRoutes = new Elysia({ prefix: "/auth", detail: { tags: ["Auth"]
           return { data: { message: "Logged out successfully" } };
         }
 
-        const payload = await refreshJwt.verify(refreshToken);
-        if (!payload || typeof payload.sub !== "string") {
+        const payload = parseRefreshPayload(await refreshJwt.verify(refreshToken));
+        if (!payload) {
           return { data: { message: "Logged out successfully" } };
         }
 
         const userId = Number(payload.sub);
+        if (Number.isNaN(userId) || userId <= 0) {
+          return { data: { message: "Logged out successfully" } };
+        }
 
-        await pruneRefreshTokens(userId);
+        await archiveStaleRefreshTokens(userId);
 
-        // Find and revoke the matching token
-        const storedTokens = await db
+        const [stored] = await db
           .select()
           .from(schema.refreshTokens)
           .where(
             and(
               eq(schema.refreshTokens.userId, userId),
-              isNull(schema.refreshTokens.revokedAt)
+              eq(schema.refreshTokens.tokenId, payload.jti)
             )
           )
-          .limit(REFRESH_TOKEN_QUERY_LIMIT);
+          .limit(1);
 
-        for (const stored of storedTokens) {
+        if (stored) {
+          let hashMatches = false;
           try {
-            const matches = await verify(stored.tokenHash, refreshToken);
-            if (matches) {
-              await db
-                .update(schema.refreshTokens)
-                .set({ revokedAt: new Date() })
-                .where(eq(schema.refreshTokens.id, stored.id));
-              break;
-            }
+            hashMatches = await verify(stored.tokenHash, refreshToken);
           } catch {
-            continue;
+            hashMatches = false;
+          }
+
+          if (!hashMatches) {
+            await revokeTokenFamily(userId, payload.fid, "replay-detected");
+          } else {
+            await db
+              .update(schema.refreshTokens)
+              .set({ revokedAt: new Date(), revokedReason: "logout" })
+              .where(
+                and(
+                  eq(schema.refreshTokens.id, stored.id),
+                  isNull(schema.refreshTokens.revokedAt)
+                )
+              );
           }
         }
       } catch {

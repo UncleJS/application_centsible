@@ -52,6 +52,7 @@ import {
   BILLING_CYCLE_LABELS,
   BILLING_CYCLE_MONTHS,
 } from "@centsible/shared";
+import type { CreateSubscriptionInput } from "@centsible/shared";
 
 interface Subscription {
   id: number;
@@ -360,7 +361,7 @@ function SubscriptionDialog({
       return;
     }
 
-    const body: Record<string, unknown> = {
+    const body: CreateSubscriptionInput = {
       name: form.name.trim(),
       description: form.description.trim() || null,
       amount: String(parseFloat(form.amount).toFixed(2)),
@@ -673,34 +674,45 @@ export default function SubscriptionsPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingSub, setDeletingSub] = useState<Subscription | null>(null);
 
-  const fetchSubscriptions = useCallback(async () => {
+  const fetchSubscriptions = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     try {
-      const res = await api.getSubscriptions();
+      const res = await api.getSubscriptions({ signal });
       setSubscriptions(res.data ?? []);
     } catch (err: unknown) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
       toast.error(err instanceof Error ? err.message : "Failed to load subscriptions.");
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   }, []);
 
-  const fetchCategories = useCallback(async () => {
+  const fetchCategories = useCallback(async (signal?: AbortSignal) => {
     try {
-      const res = await api.getCategories();
+      const res = await api.getCategories({ signal });
       setCategories(res.data ?? []);
-    } catch {
+    } catch (err: unknown) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
       // non-critical
     }
   }, []);
 
   useEffect(() => {
-    fetchSubscriptions();
+    const controller = new AbortController();
+    fetchSubscriptions(controller.signal);
+    return () => controller.abort();
   }, [fetchSubscriptions]);
 
   useEffect(() => {
-    fetchCategories();
-    fetchRates(userCurrency);
+    const controller = new AbortController();
+    Promise.all([
+      fetchCategories(controller.signal),
+      fetchRates(userCurrency),
+    ]).catch(() => {
+      // handled by individual loaders
+    });
+
+    return () => controller.abort();
   }, [fetchCategories, fetchRates, userCurrency]);
 
   function handleCreate() {
@@ -860,7 +872,9 @@ export default function SubscriptionsPage() {
         editingSub={editingSub}
         categories={categories}
         userCurrency={userCurrency}
-        onSuccess={fetchSubscriptions}
+        onSuccess={() => {
+          void fetchSubscriptions();
+        }}
       />
 
       {/* Delete Confirmation Dialog */}

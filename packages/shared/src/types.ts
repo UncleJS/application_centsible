@@ -55,6 +55,9 @@ export interface Budget {
   month: number; // 1-12
   amount: string; // decimal string
   currency: string;
+  amountInUserCurrency?: string;
+  spentInUserCurrency?: string;
+  userCurrency?: string;
   createdAt: string;
   updatedAt: string;
   archivedAt: string | null;
@@ -121,6 +124,78 @@ export interface RecurringIncome {
   archivedAt: string | null;
 }
 
+// ── API input contracts (frontend -> backend) ──
+
+export interface CreateTransactionInput {
+  categoryId: number;
+  type: TransactionType;
+  amount: string;
+  currency: string;
+  description?: string;
+  date: string;
+  subscriptionId?: number | null;
+  isRecurring?: boolean;
+}
+
+export type UpdateTransactionInput = Partial<CreateTransactionInput>;
+
+export interface CreateBudgetInput {
+  categoryId: number;
+  year: number;
+  month: number;
+  amount: string;
+  currency: string;
+}
+
+export interface UpdateBudgetInput {
+  amount: string;
+}
+
+export interface CreateSavingsGoalInput {
+  name: string;
+  description?: string | null;
+  targetAmount: string;
+  currency: string;
+  targetDate: string;
+  icon?: string | null;
+}
+
+export type UpdateSavingsGoalInput = Partial<CreateSavingsGoalInput>;
+
+export interface ContributeSavingsGoalInput {
+  amount: string;
+  currency: string;
+  note?: string | null;
+  date?: string;
+}
+
+export interface CreateSubscriptionInput {
+  categoryId?: number | null;
+  name: string;
+  description?: string | null;
+  amount: string;
+  currency: string;
+  billingCycle: BillingCycle;
+  nextRenewalDate: string;
+  startDate: string;
+  url?: string | null;
+  autoRenew?: boolean;
+}
+
+export type UpdateSubscriptionInput = Partial<CreateSubscriptionInput>;
+
+export interface CreateRecurringIncomeInput {
+  categoryId?: number | null;
+  name: string;
+  description?: string | null;
+  amount: string;
+  currency: string;
+  billingCycle: BillingCycle;
+  autoRenew?: boolean;
+}
+
+export type UpdateRecurringIncomeInput = Partial<CreateRecurringIncomeInput>;
+
 export interface ExchangeRate {
   id: number;
   baseCurrency: string;
@@ -163,7 +238,15 @@ export interface MonthlySummary {
   totalIncome: string;
   totalExpenses: string;
   netAmount: string;
+  currency?: string;
   byCategory: CategorySummary[];
+  conversionWarnings?: ConversionWarning[];
+}
+
+export interface ConversionWarning {
+  from: string;
+  to: string;
+  reason: "missing-rate" | "invalid-rate";
 }
 
 export interface CategorySummary {

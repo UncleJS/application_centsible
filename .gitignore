@@ -24,6 +24,12 @@ drizzle/meta/
 
 # Logs
 *.log
+tmp.*
 
 # Bun
 bun.lockb
+
+# Local tooling artifacts
+.opencode/
+buildah*/
+container_images_storage*/

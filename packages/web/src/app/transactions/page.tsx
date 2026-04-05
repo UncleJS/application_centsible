@@ -50,6 +50,7 @@ import {
   ArrowDownLeft,
   Repeat2,
 } from "lucide-react";
+import type { CreateTransactionInput } from "@centsible/shared";
 
 const PAGE_SIZE = 20;
 
@@ -124,15 +125,23 @@ export default function TransactionsPage() {
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
+    const controller = new AbortController();
     api
-      .getCategories()
+      .getCategories({ signal: controller.signal })
       .then((res) => setCategories(res.data))
-      .catch(() => toast.error("Failed to load categories"))
-      .finally(() => setLoadingCats(false));
+      .catch((err: unknown) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        toast.error("Failed to load categories");
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoadingCats(false);
+      });
+
+    return () => controller.abort();
   }, []);
 
   const loadTransactions = useCallback(
-    async (page: number) => {
+    async (page: number, signal?: AbortSignal) => {
       setLoadingTx(true);
       try {
         const params: Record<string, string> = {
@@ -145,23 +154,26 @@ export default function TransactionsPage() {
         if (filterTo) params.dateTo = filterTo;
         if (search) params.search = search;
 
-        const res = await api.getTransactions(params);
+        const res = await api.getTransactions(params, { signal });
         setTransactions(res.data);
         setTotal(res.total);
         setTotalPages(res.totalPages);
         setCurrentPage(res.page);
       } catch (err: unknown) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
         toast.error(err instanceof Error ? err.message : "Failed to load transactions");
       } finally {
-        setLoadingTx(false);
+        if (!signal?.aborted) setLoadingTx(false);
       }
     },
     [filterType, filterCategoryId, filterFrom, filterTo, search]
   );
 
   useEffect(() => {
+    const controller = new AbortController();
     setCurrentPage(1);
-    loadTransactions(1);
+    loadTransactions(1, controller.signal);
+    return () => controller.abort();
   }, [filterType, filterCategoryId, filterFrom, filterTo, search, loadTransactions]);
 
   const handleSearchChange = (value: string) => {
@@ -218,7 +230,7 @@ export default function TransactionsPage() {
       return;
     }
 
-    const body: Record<string, unknown> = {
+    const body: CreateTransactionInput = {
       description: form.description.trim(),
       amount: String(parseFloat(form.amount).toFixed(2)),
       type: form.type,

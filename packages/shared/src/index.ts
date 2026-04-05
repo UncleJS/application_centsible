@@ -1,3 +1,3 @@
 export * from "./types";
-export * from "./validation";
 export * from "./constants";
+export * as validation from "./validation";

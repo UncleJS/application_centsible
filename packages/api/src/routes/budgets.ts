@@ -2,6 +2,12 @@ import { Elysia, t } from "elysia";
 import { authMiddleware } from "../middleware/auth";
 import { db, schema } from "../db";
 import { eq, and, isNull, sql, gte, lt } from "drizzle-orm";
+import {
+  convertToBaseCurrency,
+  loadLatestRateMap,
+  toFixed2,
+  type ConversionWarning,
+} from "../lib/currency";
 
 const amountPattern = "^\\d+(\\.\\d{1,2})?$";
 
@@ -99,7 +105,74 @@ export const budgetRoutes = new Elysia({
           schema.budgets.updatedAt
         );
 
-      return { data: rows };
+      const txByCategoryCurrency = await db
+        .select({
+          categoryId: schema.transactions.categoryId,
+          currency: schema.transactions.currency,
+          totalAmount: sql<string>`COALESCE(SUM(${schema.transactions.amount}), 0.00)`,
+        })
+        .from(schema.transactions)
+        .where(
+          and(
+            eq(schema.transactions.userId, user.id),
+            isNull(schema.transactions.archivedAt),
+            gte(schema.transactions.date, startDate),
+            lt(schema.transactions.date, endDate)
+          )
+        )
+        .groupBy(schema.transactions.categoryId, schema.transactions.currency);
+
+      const currencies = new Set<string>();
+      for (const row of rows) currencies.add(row.currency);
+      for (const row of txByCategoryCurrency) currencies.add(row.currency);
+
+      const rates = await loadLatestRateMap(user.defaultCurrency, currencies);
+      const warnings: ConversionWarning[] = [];
+
+      const spentInUserByCategory = new Map<number, number>();
+      for (const tx of txByCategoryCurrency) {
+        const converted = convertToBaseCurrency(
+          tx.totalAmount,
+          tx.currency,
+          user.defaultCurrency,
+          rates
+        );
+        if (converted.warning) warnings.push(converted.warning);
+
+        const prev = spentInUserByCategory.get(tx.categoryId) ?? 0;
+        spentInUserByCategory.set(tx.categoryId, prev + converted.value);
+      }
+
+      const enriched = rows.map((row) => {
+        const convertedBudget = convertToBaseCurrency(
+          row.amount,
+          row.currency,
+          user.defaultCurrency,
+          rates
+        );
+        if (convertedBudget.warning) warnings.push(convertedBudget.warning);
+
+        return {
+          ...row,
+          amountInUserCurrency: toFixed2(convertedBudget.value),
+          spentInUserCurrency: toFixed2(
+            spentInUserByCategory.get(row.categoryId) ?? 0
+          ),
+          userCurrency: user.defaultCurrency,
+        };
+      });
+
+      const uniqueWarnings = Array.from(
+        new Map(
+          warnings.map((w) => [`${w.from}-${w.to}-${w.reason}`, w])
+        ).values()
+      );
+
+      return {
+        data: enriched,
+        currency: user.defaultCurrency,
+        conversionWarnings: uniqueWarnings,
+      };
     }
   )
   // ── Create or update budget (atomic upsert) ──

@@ -4,6 +4,13 @@ import { db, schema } from "../db";
 import { eq, and, isNull, gte, lt, sql } from "drizzle-orm";
 import { BILLING_CYCLE_MONTHS } from "@centsible/shared";
 import type { ForecastMonth, ForecastItem } from "@centsible/shared";
+import {
+  convertToBaseCurrency,
+  loadLatestRateMap,
+  toFixed2,
+  type ConversionWarning,
+} from "../lib/currency";
+import { getRecurringIncomeOccurrencesInMonth } from "../lib/forecast";
 
 // ── Helpers ──
 
@@ -60,10 +67,11 @@ export const reportRoutes = new Elysia({
     const { year, month } = parsed;
     const { startDate, endDate } = periodDates(year, month);
 
-    // Get totals by type
+    // Get totals by type+currency
     const totals = await db
       .select({
         type: schema.transactions.type,
+        currency: schema.transactions.currency,
         total: sql<string>`SUM(${schema.transactions.amount})`,
       })
       .from(schema.transactions)
@@ -75,24 +83,17 @@ export const reportRoutes = new Elysia({
           lt(schema.transactions.date, endDate)
         )
       )
-      .groupBy(schema.transactions.type);
+      .groupBy(schema.transactions.type, schema.transactions.currency);
 
-    const totalIncome =
-      totals.find((t) => t.type === "income")?.total || "0.00";
-    const totalExpenses =
-      totals.find((t) => t.type === "expense")?.total || "0.00";
-    const netAmount = (
-      parseFloat(totalIncome) - parseFloat(totalExpenses)
-    ).toFixed(2);
-
-    // Get breakdown by category
-    const byCategory = await db
+    // Get breakdown by category+currency
+    const byCategoryRaw = await db
       .select({
         categoryId: schema.transactions.categoryId,
         categoryName: schema.categories.name,
         categoryIcon: schema.categories.icon,
         categoryColor: schema.categories.color,
         type: schema.transactions.type,
+        currency: schema.transactions.currency,
         totalAmount: sql<string>`SUM(${schema.transactions.amount})`,
         transactionCount: sql<number>`COUNT(*)`,
       })
@@ -114,7 +115,8 @@ export const reportRoutes = new Elysia({
         schema.categories.name,
         schema.categories.icon,
         schema.categories.color,
-        schema.transactions.type
+        schema.transactions.type,
+        schema.transactions.currency
       );
 
     // Get budgets for the month to calculate percent used
@@ -130,14 +132,89 @@ export const reportRoutes = new Elysia({
         )
       );
 
-    const budgetMap = new Map(
-      monthBudgets.map((b) => [b.categoryId, b.amount])
-    );
+    const currencies = new Set<string>();
+    for (const row of totals) currencies.add(row.currency);
+    for (const row of byCategoryRaw) currencies.add(row.currency);
+    for (const row of monthBudgets) currencies.add(row.currency);
 
-    const categorySummary = byCategory.map((c) => {
-      const budgetAmount = budgetMap.get(c.categoryId) || null;
+    const rates = await loadLatestRateMap(user.defaultCurrency, currencies);
+    const warnings: ConversionWarning[] = [];
+
+    let totalIncomeValue = 0;
+    let totalExpensesValue = 0;
+    for (const row of totals) {
+      const converted = convertToBaseCurrency(
+        row.total,
+        row.currency,
+        user.defaultCurrency,
+        rates
+      );
+      if (converted.warning) warnings.push(converted.warning);
+      if (row.type === "income") totalIncomeValue += converted.value;
+      else if (row.type === "expense") totalExpensesValue += converted.value;
+    }
+
+    const totalIncome = toFixed2(totalIncomeValue);
+    const totalExpenses = toFixed2(totalExpensesValue);
+    const netAmount = toFixed2(totalIncomeValue - totalExpensesValue);
+
+    const budgetMap = new Map<number, number>();
+    for (const budget of monthBudgets) {
+      const converted = convertToBaseCurrency(
+        budget.amount,
+        budget.currency,
+        user.defaultCurrency,
+        rates
+      );
+      if (converted.warning) warnings.push(converted.warning);
+      budgetMap.set(budget.categoryId, converted.value);
+    }
+
+    const categoryMap = new Map<
+      string,
+      {
+        categoryId: number;
+        categoryName: string | null;
+        categoryIcon: string | null;
+        categoryColor: string | null;
+        type: "income" | "expense";
+        totalAmount: number;
+        transactionCount: number;
+      }
+    >();
+
+    for (const row of byCategoryRaw) {
+      const key = `${row.categoryId}:${row.type}`;
+      const converted = convertToBaseCurrency(
+        row.totalAmount,
+        row.currency,
+        user.defaultCurrency,
+        rates
+      );
+      if (converted.warning) warnings.push(converted.warning);
+
+      const existing = categoryMap.get(key);
+      if (existing) {
+        existing.totalAmount += converted.value;
+        existing.transactionCount += Number(row.transactionCount);
+      } else {
+        categoryMap.set(key, {
+          categoryId: row.categoryId,
+          categoryName: row.categoryName,
+          categoryIcon: row.categoryIcon,
+          categoryColor: row.categoryColor,
+          type: row.type === "income" ? "income" : "expense",
+          totalAmount: converted.value,
+          transactionCount: Number(row.transactionCount),
+        });
+      }
+    }
+
+    const categorySummary = Array.from(categoryMap.values()).map((c) => {
+      const budgetAmountNum = budgetMap.get(c.categoryId) ?? null;
+      const budgetAmount = budgetAmountNum === null ? null : toFixed2(budgetAmountNum);
       const percentUsed = budgetAmount
-        ? (parseFloat(c.totalAmount) / parseFloat(budgetAmount)) * 100
+        ? (c.totalAmount / parseFloat(budgetAmount)) * 100
         : null;
 
       return {
@@ -146,12 +223,18 @@ export const reportRoutes = new Elysia({
         categoryIcon: c.categoryIcon,
         categoryColor: c.categoryColor,
         type: c.type,
-        totalAmount: c.totalAmount,
+        totalAmount: toFixed2(c.totalAmount),
         budgetAmount,
         percentUsed: percentUsed !== null ? Math.round(percentUsed) : null,
-        transactionCount: Number(c.transactionCount),
+        transactionCount: c.transactionCount,
       };
     });
+
+    const conversionWarnings = Array.from(
+      new Map(
+        warnings.map((w) => [`${w.from}-${w.to}-${w.reason}`, w])
+      ).values()
+    );
 
     return {
       data: {
@@ -160,7 +243,9 @@ export const reportRoutes = new Elysia({
         totalIncome,
         totalExpenses,
         netAmount,
+        currency: user.defaultCurrency,
         byCategory: categorySummary,
+        conversionWarnings,
       },
     };
   })
@@ -253,6 +338,16 @@ export const reportRoutes = new Elysia({
         )
       );
 
+    const currencies = new Set<string>();
+    for (const sub of subs) currencies.add(sub.currency);
+    for (const inc of incomeRows) currencies.add(inc.currency);
+    for (const goal of goals) currencies.add(goal.currency);
+    for (const b of latestBudgets) currencies.add(b.currency);
+    for (const b of latestIncomeBudgets) currencies.add(b.currency);
+
+    const rates = await loadLatestRateMap(user.defaultCurrency, currencies);
+    const forecastWarnings: ConversionWarning[] = [];
+
     // i=0 → current month; i=1 → next month; etc.
     for (let i = 0; i < months; i++) {
       const fYear = today.getMonth() + i >= 12
@@ -266,8 +361,14 @@ export const reportRoutes = new Elysia({
       for (const sub of subs) {
         const renewals = getSubscriptionRenewalsInMonth(sub, fYear, fMonth);
         for (const renewal of renewals) {
-          const amount = parseFloat(sub.amount);
-          subscriptionTotal += amount;
+          const converted = convertToBaseCurrency(
+            sub.amount,
+            sub.currency,
+            user.defaultCurrency,
+            rates
+          );
+          if (converted.warning) forecastWarnings.push(converted.warning);
+          subscriptionTotal += converted.value;
           items.push({
             name: sub.name,
             amount: sub.amount,
@@ -283,23 +384,25 @@ export const reportRoutes = new Elysia({
       let recurringIncomeTotal = 0;
       for (const inc of incomeRows) {
         if (!inc.autoRenew) continue;
-        const cycleMonths = BILLING_CYCLE_MONTHS[inc.billingCycle] || 1;
-        // For sub-monthly cycles (weekly/fortnightly): fires every month
-        // For monthly: fires every month
-        // For supra-monthly (quarterly=3, yearly=12): fires every N months
-        // Use absolute month index from year 0 to determine fire months
-        let firesThisMonth: boolean;
-        if (cycleMonths <= 1) {
-          firesThisMonth = true;
-        } else {
-          const absMonth = fYear * 12 + (fMonth - 1);
-          firesThisMonth = absMonth % Math.round(cycleMonths) === 0;
-        }
-        if (firesThisMonth) {
-          recurringIncomeTotal += parseFloat(inc.amount);
+        const occurrences = getRecurringIncomeOccurrencesInMonth(inc, fYear, fMonth);
+        if (occurrences > 0) {
+          const converted = convertToBaseCurrency(
+            inc.amount,
+            inc.currency,
+            user.defaultCurrency,
+            rates
+          );
+          if (converted.warning) forecastWarnings.push(converted.warning);
+          recurringIncomeTotal += converted.value * occurrences;
+
+          const amountPerOccurrence = Number(inc.amount);
+          const totalOriginalAmount = Number.isFinite(amountPerOccurrence)
+            ? toFixed2(amountPerOccurrence * occurrences)
+            : inc.amount;
+
           items.push({
-            name: inc.name,
-            amount: inc.amount,
+            name: occurrences > 1 ? `${inc.name} (${occurrences}×)` : inc.name,
+            amount: totalOriginalAmount,
             currency: inc.currency,
             date: `${fYear}-${String(fMonth).padStart(2, "0")}-01`,
             type: "recurring-income",
@@ -327,7 +430,14 @@ export const reportRoutes = new Elysia({
 
         if (forecastMonthStart <= targetDate) {
           const monthlyContribution = remaining / monthsRemaining;
-          savingsTotal += monthlyContribution;
+          const converted = convertToBaseCurrency(
+            monthlyContribution,
+            goal.currency,
+            user.defaultCurrency,
+            rates
+          );
+          if (converted.warning) forecastWarnings.push(converted.warning);
+          savingsTotal += converted.value;
           items.push({
             name: `Savings: ${goal.name}`,
             amount: monthlyContribution.toFixed(2),
@@ -342,7 +452,14 @@ export const reportRoutes = new Elysia({
       // Add expense budget amounts as projected expenses
       let budgetTotal = 0;
       for (const budget of latestBudgets) {
-        budgetTotal += parseFloat(budget.amount);
+        const converted = convertToBaseCurrency(
+          budget.amount,
+          budget.currency,
+          user.defaultCurrency,
+          rates
+        );
+        if (converted.warning) forecastWarnings.push(converted.warning);
+        budgetTotal += converted.value;
         items.push({
           name: `Budget: ${budget.categoryName}`,
           amount: budget.amount,
@@ -356,7 +473,14 @@ export const reportRoutes = new Elysia({
       // Add income budget amounts (once-off / manually set income)
       let budgetedIncomeTotal = 0;
       for (const budget of latestIncomeBudgets) {
-        budgetedIncomeTotal += parseFloat(budget.amount);
+        const converted = convertToBaseCurrency(
+          budget.amount,
+          budget.currency,
+          user.defaultCurrency,
+          rates
+        );
+        if (converted.warning) forecastWarnings.push(converted.warning);
+        budgetedIncomeTotal += converted.value;
         items.push({
           name: `Income: ${budget.categoryName}`,
           amount: budget.amount,
@@ -374,19 +498,29 @@ export const reportRoutes = new Elysia({
       forecast.push({
         year: fYear,
         month: fMonth,
-        projectedExpenses: budgetTotal.toFixed(2),
-        projectedIncome: totalIncome.toFixed(2),
-        subscriptionCosts: subscriptionTotal.toFixed(2),
-        recurringIncomeSources: recurringIncomeTotal.toFixed(2),
-        savingsContributions: savingsTotal.toFixed(2),
-        totalProjected: totalProjected.toFixed(2),
+        projectedExpenses: toFixed2(budgetTotal),
+        projectedIncome: toFixed2(totalIncome),
+        subscriptionCosts: toFixed2(subscriptionTotal),
+        recurringIncomeSources: toFixed2(recurringIncomeTotal),
+        savingsContributions: toFixed2(savingsTotal),
+        totalProjected: toFixed2(totalProjected),
         items: items.sort(
           (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
         ),
       });
     }
 
-    return { data: forecast };
+    const conversionWarnings = Array.from(
+      new Map(
+        forecastWarnings.map((w) => [`${w.from}-${w.to}-${w.reason}`, w])
+      ).values()
+    );
+
+    return {
+      data: forecast,
+      currency: user.defaultCurrency,
+      conversionWarnings,
+    };
   })
   // ── Monthly trend (last N months) ──
   .get("/trend", async ({ user, query }) => {
@@ -405,6 +539,7 @@ export const reportRoutes = new Elysia({
         year: sql<number>`YEAR(${schema.transactions.date})`,
         month: sql<number>`MONTH(${schema.transactions.date})`,
         type: schema.transactions.type,
+        currency: schema.transactions.currency,
         total: sql<string>`COALESCE(SUM(${schema.transactions.amount}), 0)`,
       })
       .from(schema.transactions)
@@ -419,19 +554,31 @@ export const reportRoutes = new Elysia({
       .groupBy(
         sql`YEAR(${schema.transactions.date})`,
         sql`MONTH(${schema.transactions.date})`,
-        schema.transactions.type
+        schema.transactions.type,
+        schema.transactions.currency
       );
 
+    const rates = await loadLatestRateMap(
+      user.defaultCurrency,
+      totals.map((t) => t.currency)
+    );
+
     // Build a lookup map: "YYYY-MM" → { income, expenses }
-    const lookup = new Map<string, { income: string; expenses: string }>();
+    const lookup = new Map<string, { income: number; expenses: number }>();
     for (const row of totals) {
       const key = `${row.year}-${row.month}`;
       if (!lookup.has(key)) {
-        lookup.set(key, { income: "0.00", expenses: "0.00" });
+        lookup.set(key, { income: 0, expenses: 0 });
       }
       const entry = lookup.get(key)!;
-      if (row.type === "income") entry.income = row.total;
-      else if (row.type === "expense") entry.expenses = row.total;
+      const converted = convertToBaseCurrency(
+        row.total,
+        row.currency,
+        user.defaultCurrency,
+        rates
+      );
+      if (row.type === "income") entry.income += converted.value;
+      else if (row.type === "expense") entry.expenses += converted.value;
     }
 
     // Build results array in chronological order
@@ -441,14 +588,14 @@ export const reportRoutes = new Elysia({
       const year = d.getFullYear();
       const month = d.getMonth() + 1;
       const key = `${year}-${month}`;
-      const entry = lookup.get(key) || { income: "0.00", expenses: "0.00" };
+      const entry = lookup.get(key) || { income: 0, expenses: 0 };
 
       results.push({
         year,
         month,
-        income: entry.income,
-        expenses: entry.expenses,
-        net: (parseFloat(entry.income) - parseFloat(entry.expenses)).toFixed(2),
+        income: toFixed2(entry.income),
+        expenses: toFixed2(entry.expenses),
+        net: toFixed2(entry.income - entry.expenses),
       });
     }
 

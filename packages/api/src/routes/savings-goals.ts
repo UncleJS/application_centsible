@@ -119,9 +119,22 @@ export const savingsGoalRoutes = new Elysia({
         return { error: "Savings goal not found" };
       }
 
+      const updateData: Partial<typeof body> = {};
+      if (body.name !== undefined) updateData.name = body.name;
+      if (body.description !== undefined) updateData.description = body.description;
+      if (body.targetAmount !== undefined) updateData.targetAmount = body.targetAmount;
+      if (body.currency !== undefined) updateData.currency = body.currency;
+      if (body.targetDate !== undefined) updateData.targetDate = body.targetDate;
+      if (body.icon !== undefined) updateData.icon = body.icon;
+
+      if (Object.keys(updateData).length === 0) {
+        set.status = 400;
+        return { error: "No fields to update" };
+      }
+
       await db
         .update(schema.savingsGoals)
-        .set(body)
+        .set(updateData)
         .where(and(eq(schema.savingsGoals.id, id), eq(schema.savingsGoals.userId, user.id)));
 
       const [updated] = await db

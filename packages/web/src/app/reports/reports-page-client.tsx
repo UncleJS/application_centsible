@@ -246,44 +246,52 @@ export default function ReportsPage() {
 
   // ── Fetch monthly summary ──────────────────────────────────────────────────
 
-  const fetchSummary = useCallback(async () => {
+  const fetchSummary = useCallback(async (signal?: AbortSignal) => {
     setSummaryLoading(true);
     setSummaryError(false);
     try {
-      const res = await api.getMonthlySummary(selectedYear, selectedMonth);
+      const res = await api.getMonthlySummary(selectedYear, selectedMonth, {
+        signal,
+      });
       setSummary(res.data);
     } catch (err: unknown) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
       setSummaryError(true);
       toast.error(err instanceof Error ? err.message : "Failed to load monthly summary.");
     } finally {
-      setSummaryLoading(false);
+      if (!signal?.aborted) setSummaryLoading(false);
     }
   }, [selectedYear, selectedMonth]);
 
   // ── Fetch trend data ───────────────────────────────────────────────────────
 
-  const fetchTrend = useCallback(async () => {
+  const fetchTrend = useCallback(async (signal?: AbortSignal) => {
     setTrendLoading(true);
     setTrendError(false);
     try {
-      const res = await api.getTrend(trendHorizon);
+      const res = await api.getTrend(trendHorizon, { signal });
       setTrendData(res.data ?? []);
     } catch (err: unknown) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
       setTrendError(true);
       toast.error(err instanceof Error ? err.message : "Failed to load trend data.");
     } finally {
-      setTrendLoading(false);
+      if (!signal?.aborted) setTrendLoading(false);
     }
   }, [trendHorizon]);
 
   useEffect(() => {
-    fetchSummary();
+    const controller = new AbortController();
+    fetchSummary(controller.signal);
+    return () => controller.abort();
   }, [fetchSummary]);
 
   useEffect(() => {
+    const controller = new AbortController();
     if (activeTab === "trends") {
-      fetchTrend();
+      fetchTrend(controller.signal);
     }
+    return () => controller.abort();
   }, [activeTab, fetchTrend]);
 
   // ── CSV Export ─────────────────────────────────────────────────────────────
@@ -297,7 +305,10 @@ export default function ReportsPage() {
       const a = document.createElement("a");
       a.href = url;
       a.download = `centsible-${selectedYear}-${String(selectedMonth).padStart(2, "0")}.csv`;
+      a.style.display = "none";
+      document.body.appendChild(a);
       a.click();
+      a.remove();
       URL.revokeObjectURL(url);
       toast.success("CSV exported successfully.");
     } catch (err: unknown) {
@@ -403,7 +414,9 @@ export default function ReportsPage() {
               <Button
                 variant="outline"
                 className="mt-4 border-zinc-700 text-zinc-300 hover:bg-zinc-800"
-                onClick={fetchSummary}
+                onClick={() => {
+                  void fetchSummary();
+                }}
               >
                 Retry
               </Button>
@@ -498,7 +511,9 @@ export default function ReportsPage() {
                   <Button
                     variant="outline"
                     className="mt-4 border-zinc-700 text-zinc-300 hover:bg-zinc-800"
-                    onClick={fetchSummary}
+                    onClick={() => {
+                      void fetchSummary();
+                    }}
                   >
                     Retry
                   </Button>
@@ -609,7 +624,9 @@ export default function ReportsPage() {
                   <Button
                     variant="outline"
                     className="mt-4 border-zinc-700 text-zinc-300 hover:bg-zinc-800"
-                    onClick={fetchTrend}
+                    onClick={() => {
+                      void fetchTrend();
+                    }}
                   >
                     Retry
                   </Button>

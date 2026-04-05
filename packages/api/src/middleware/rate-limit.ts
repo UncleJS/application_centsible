@@ -1,87 +1,126 @@
 import { Elysia } from "elysia";
+import { and, eq, isNull, lt, sql } from "drizzle-orm";
+import { db, schema } from "../db";
+import { config } from "../config";
 
-// ── In-memory sliding-window rate limiter ──
-// Keyed by IP address. Separate limits for auth vs general routes.
+const CLEANUP_INTERVAL_MS = 10 * 60 * 1000;
+const CLEANUP_WINDOWS_TO_KEEP = 10;
+let lastCleanupAt = 0;
 
-interface RateLimitEntry {
-  timestamps: number[];
+function truncateIdentifier(value: string): string {
+  return value.slice(0, 255);
 }
 
-const store = new Map<string, RateLimitEntry>();
-
-// Cleanup stale entries every 5 minutes
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, entry] of store) {
-    entry.timestamps = entry.timestamps.filter((t) => now - t < 120_000);
-    if (entry.timestamps.length === 0) store.delete(key);
-  }
-}, 5 * 60 * 1000).unref();
-
-function getClientIp(headers: Record<string, string | undefined>): string {
-  // Trust X-Forwarded-For first header (from reverse proxy)
-  const forwarded = headers["x-forwarded-for"];
-  if (forwarded) {
-    return forwarded.split(",")[0].trim();
-  }
-  const realIp = headers["x-real-ip"];
-  if (realIp) return realIp;
-  return "unknown";
+function floorToWindow(nowMs: number, windowMs: number): Date {
+  const floored = Math.floor(nowMs / windowMs) * windowMs;
+  return new Date(floored);
 }
 
-function isRateLimited(key: string, maxRequests: number, windowMs: number): boolean {
-  const now = Date.now();
-  let entry = store.get(key);
-  if (!entry) {
-    entry = { timestamps: [] };
-    store.set(key, entry);
-  }
+function getClientIdentifier(
+  headers: Record<string, string | undefined>
+): string {
+  const forwarded = headers["x-forwarded-for"]?.split(",")[0]?.trim();
+  const realIp = headers["x-real-ip"]?.trim();
+  const fallbackIp = headers["cf-connecting-ip"]?.trim();
+  const ua = (headers["user-agent"] || "unknown").slice(0, 120);
 
-  // Remove timestamps outside the window
-  entry.timestamps = entry.timestamps.filter((t) => now - t < windowMs);
+  const trustedIp = config.trustProxyHeaders
+    ? forwarded || realIp || fallbackIp
+    : undefined;
 
-  if (entry.timestamps.length >= maxRequests) {
-    return true;
-  }
-
-  entry.timestamps.push(now);
-  return false;
+  return truncateIdentifier(trustedIp ? `ip:${trustedIp}` : `ua:${ua}`);
 }
 
-/**
- * Rate limiting middleware for auth endpoints.
- * 10 requests per minute per IP.
- */
-export const authRateLimit = new Elysia({ name: "auth-rate-limit" }).derive(
-  { as: "local" },
-  ({ headers, set }) => {
-    const ip = getClientIp(headers as Record<string, string | undefined>);
-    const key = `auth:${ip}`;
+async function archiveStaleWindows(nowMs: number): Promise<void> {
+  if (nowMs - lastCleanupAt < CLEANUP_INTERVAL_MS) return;
+  lastCleanupAt = nowMs;
 
-    if (isRateLimited(key, 10, 60_000)) {
+  const cutoff = new Date(nowMs - config.rateLimitWindowMs * CLEANUP_WINDOWS_TO_KEEP);
+  await db
+    .update(schema.rateLimitCounters)
+    .set({ archivedAt: new Date() })
+    .where(
+      and(
+        isNull(schema.rateLimitCounters.archivedAt),
+        lt(schema.rateLimitCounters.windowStart, cutoff)
+      )
+    );
+}
+
+async function isRateLimited(
+  scope: "auth" | "general",
+  identifier: string,
+  maxRequests: number
+): Promise<boolean> {
+  const nowMs = Date.now();
+  const windowStart = floorToWindow(nowMs, config.rateLimitWindowMs);
+
+  await db
+    .insert(schema.rateLimitCounters)
+    .values({
+      scope,
+      identifier,
+      windowStart,
+      requestCount: 1,
+    })
+    .onDuplicateKeyUpdate({
+      set: {
+        requestCount: sql`${schema.rateLimitCounters.requestCount} + 1`,
+        updatedAt: sql`CURRENT_TIMESTAMP`,
+        archivedAt: null,
+      },
+    });
+
+  const [counter] = await db
+    .select({ requestCount: schema.rateLimitCounters.requestCount })
+    .from(schema.rateLimitCounters)
+    .where(
+      and(
+        eq(schema.rateLimitCounters.scope, scope),
+        eq(schema.rateLimitCounters.identifier, identifier),
+        eq(schema.rateLimitCounters.windowStart, windowStart),
+        isNull(schema.rateLimitCounters.archivedAt)
+      )
+    )
+    .limit(1);
+
+  await archiveStaleWindows(nowMs);
+  return (counter?.requestCount ?? 0) > maxRequests;
+}
+
+function makeRateLimitPlugin(
+  name: string,
+  scope: "auth" | "general",
+  maxRequests: number,
+  as: "local" | "scoped"
+) {
+  return new Elysia({ name }).derive({ as }, async ({ headers, set }) => {
+    const identifier = getClientIdentifier(
+      headers as Record<string, string | undefined>
+    );
+
+    if (await isRateLimited(scope, identifier, maxRequests)) {
       set.status = 429;
+      set.headers["retry-after"] = String(
+        Math.ceil(config.rateLimitWindowMs / 1000)
+      );
       throw new Error("Too many requests. Please try again later.");
     }
 
     return {};
-  }
+  });
+}
+
+export const authRateLimit = makeRateLimitPlugin(
+  "auth-rate-limit",
+  "auth",
+  config.authRateLimitMax,
+  "local"
 );
 
-/**
- * Rate limiting middleware for general API endpoints.
- * 100 requests per minute per IP.
- */
-export const generalRateLimit = new Elysia({ name: "general-rate-limit" }).derive(
-  { as: "scoped" },
-  ({ headers, set }) => {
-    const ip = getClientIp(headers as Record<string, string | undefined>);
-    const key = `general:${ip}`;
-
-    if (isRateLimited(key, 100, 60_000)) {
-      set.status = 429;
-      throw new Error("Too many requests. Please try again later.");
-    }
-
-    return {};
-  }
+export const generalRateLimit = makeRateLimitPlugin(
+  "general-rate-limit",
+  "general",
+  config.generalRateLimitMax,
+  "scoped"
 );
