@@ -61,17 +61,20 @@ A self-hosted personal finance tracker. Track income and expenses, set monthly b
 cp .env.example .env
 # Edit .env — set MARIADB_*, JWT_SECRET, JWT_REFRESH_SECRET to real values.
 
-# 2. Bootstrap the utility dev container used for verification
-podman build -t localhost/centsible-dev:latest -f Containerfile.dev .
-mkdir -p ~/.config/containers/systemd
-cp infra/quadlet/centsible-dev.container ~/.config/containers/systemd/centsible-dev.container
-systemctl --user daemon-reload
-systemctl --user start centsible-dev.service
+# 2. One-shot bootstrap — builds all three images, installs Quadlets
+#    (stamping the absolute .env path into each unit), starts the pod.
+./scripts/install.sh
+```
 
-# 3. Build and start the repo-configured stack
-./infra/deploy.sh build
-./infra/deploy.sh install   # stamps the absolute .env path into each unit
-./infra/deploy.sh start
+Day-to-day lifecycle commands:
+
+```bash
+./scripts/start.sh      # start the pod
+./scripts/stop.sh       # stop the pod
+./scripts/restart.sh    # stop then start
+./scripts/rebuild.sh    # verify, stop, rebuild all images, start
+./scripts/logs.sh       # tail journal for all centsible services
+./scripts/seed.sh       # seed the database via centsible-api
 ```
 
 - Web: http://localhost:10300
@@ -92,13 +95,16 @@ For production-style Podman + Quadlet installs:
 
 ```bash
 # Remove installed Quadlet files and runtime, keep DB data
-./infra/deploy.sh uninstall
+./scripts/teardown.sh
 
 # Also remove local images
-./infra/deploy.sh uninstall --remove-images
+./scripts/teardown.sh --remove-images
 
 # Also purge the MariaDB named volume (destructive)
-./infra/deploy.sh uninstall --purge-volumes
+./scripts/teardown.sh --purge-volumes
+
+# Full wipe (volumes + images)
+./scripts/teardown.sh --remove-images --purge-volumes
 ```
 
 Database data is preserved unless `--purge-volumes` is provided.
@@ -134,7 +140,6 @@ application_centsible/
 │   ├── Containerfile.api       # Multi-stage Podman build for the API
 │   ├── Containerfile.web       # Multi-stage Podman build for the web app
 │   ├── api-entrypoint.sh       # Waits for DB, runs migrations, starts API
-│   ├── deploy.sh               # One-command build + deploy helper
 │   └── quadlet/                # systemd Quadlet unit files
 │       ├── centsible.pod
 │       ├── centsible-api.container
@@ -142,6 +147,14 @@ application_centsible/
 │       ├── centsible-dev.container
 │       ├── centsible-web.container
 │       └── centsible-mariadb.container
+├── scripts/
+│   ├── lib/common.sh           # shared constants + helpers
+│   ├── install.sh              # full bootstrap (build + install + start)
+│   ├── rebuild.sh              # verify, stop, rebuild all images, start
+│   ├── start.sh / stop.sh / restart.sh
+│   ├── teardown.sh             # uninstall; --remove-images, --purge-volumes
+│   ├── logs.sh                 # tail journal for all centsible services
+│   └── seed.sh                 # run database seed inside centsible-api
 ├── .env.example      # Repo-local env template (dev + Quadlet stack)
 └── bun.lock
 ```

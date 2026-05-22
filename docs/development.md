@@ -116,8 +116,7 @@ application_centsible/
 │           ├── validation.ts     # Zod schemas used by both API (route validators) and web (form validation)
 │           └── constants.ts      # Currencies, default categories, billing cycle labels/multipliers
 │
-├── infra/                    # Container and deploy artefacts
-│   ├── deploy.sh             # Build + install + start/stop/logs/seed script
+├── infra/                    # Container artefacts
 │   ├── Containerfile.api     # Multi-stage build for the Bun/Elysia API
 │   ├── Containerfile.web     # Multi-stage build for the Vite SPA (served by Caddy)
 │   ├── api-entrypoint.sh     # DB readiness check + migration runner + process exec
@@ -126,6 +125,15 @@ application_centsible/
 │       ├── centsible-mariadb.container  # MariaDB 11.7
 │       ├── centsible-api.container      # API container in pod
 │       └── centsible-web.container      # Web container in pod
+│
+├── scripts/                  # Lifecycle scripts (Quadlet + Podman)
+│   ├── lib/common.sh         # Shared constants and helpers sourced by each script
+│   ├── install.sh            # First-time bootstrap: build images + install Quadlets + start
+│   ├── rebuild.sh            # verify, stop, rebuild all images, start
+│   ├── start.sh, stop.sh, restart.sh
+│   ├── teardown.sh           # Uninstall; --remove-images, --purge-volumes
+│   ├── logs.sh               # Tail all centsible-* service logs
+│   └── seed.sh               # Run packages/api/src/db/seed.ts inside centsible-api
 │
 ├── docs/                     # Technical and user documentation
 │   ├── development.md        # This file
@@ -202,18 +210,11 @@ It does **not** serve the web UI or API itself. The published app ports `10300/1
 cp .env.example .env
 # Edit .env — set MARIADB_*, JWT_SECRET, JWT_REFRESH_SECRET to real values.
 
-# 2. Bootstrap the utility dev container used for verify:image
-podman build -t localhost/centsible-dev:latest -f Containerfile.dev .
-mkdir -p ~/.config/containers/systemd
-cp infra/quadlet/centsible-dev.container ~/.config/containers/systemd/centsible-dev.container
-systemctl --user daemon-reload
-systemctl --user start centsible-dev.service
-
-# 3. Build and start the stack
-./infra/deploy.sh build
-./infra/deploy.sh install
-./infra/deploy.sh start
+# 2. Build all three images, install Quadlets, start the pod in one shot
+./scripts/install.sh
 ```
+
+Subsequent invocations: `./scripts/start.sh`, `./scripts/stop.sh`, `./scripts/restart.sh`, `./scripts/rebuild.sh` (verify + rebuild + restart), `./scripts/logs.sh`, `./scripts/seed.sh`, `./scripts/teardown.sh [--remove-images] [--purge-volumes]`.
 
 - Web: http://localhost:10300
 - API: http://localhost:10301
@@ -314,7 +315,7 @@ The suite covers auth flows, every CRUD screen, multi-currency, CSV export, pagi
 ### Prerequisites
 
 - `.env` populated with `MARIADB_*` (used by both the dev stack and the E2E bootstrap).
-- The MariaDB container running (`./infra/deploy.sh start` or a local install). The E2E suite does not start its own DB.
+- The MariaDB container running (`./scripts/start.sh` or a local install). The E2E suite does not start its own DB.
 
 [↑ Go to TOC](#table-of-contents)
 

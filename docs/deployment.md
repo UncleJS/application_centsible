@@ -80,22 +80,28 @@ sudo loginctl enable-linger $USER
 
 ## First-Time Setup
 
-The `infra/deploy.sh` script automates the full workflow:
+The `scripts/install.sh` script automates the full workflow:
 
 ```bash
 # From the project root
-./infra/deploy.sh
+./scripts/install.sh
 ```
 
-This runs three steps in sequence: **build → install → start**.
+This runs in sequence: **stamp `.env` → build dev/api/web images → install Quadlets → start the pod**.
 
-You can run each step independently:
+Day-to-day lifecycle scripts (in `scripts/`):
 
 ```bash
-./infra/deploy.sh build      # Build container images only
-./infra/deploy.sh install    # Install Quadlet files + create .env if missing
-./infra/deploy.sh start      # Start all services
+./scripts/start.sh       # Start the pod (and all containers in it)
+./scripts/stop.sh        # Stop the pod
+./scripts/restart.sh     # Stop then start
+./scripts/rebuild.sh     # verify:image, stop, rebuild all images, start
+./scripts/logs.sh        # Tail journal logs for all centsible services
+./scripts/seed.sh        # Seed the database via centsible-api
+./scripts/teardown.sh    # Uninstall — see "Uninstalling" below
 ```
+
+All scripts share `scripts/lib/common.sh` for project constants and helpers, so there is exactly one place that names containers, images, volumes, and units.
 
 [↑ Go to TOC](#table-of-contents)
 
@@ -103,13 +109,7 @@ You can run each step independently:
 
 ## Building Container Images
 
-Images are built locally — they are **not pushed to a registry**.
-
-```bash
-./infra/deploy.sh build
-```
-
-Under the hood this runs:
+Images are built locally — they are **not pushed to a registry**. `scripts/install.sh` and `scripts/rebuild.sh` are the supported entrypoints; both ultimately call:
 
 ```bash
 # API image
@@ -146,11 +146,7 @@ podman build \
 
 ## Installing Quadlet Units
 
-```bash
-./infra/deploy.sh install
-```
-
-This copies the six files from `infra/quadlet/` to `~/.config/containers/systemd/`:
+`scripts/install.sh` (and `scripts/lib/common.sh`'s `install_quadlet_units` helper that it calls) copies the six files from `infra/quadlet/` to `~/.config/containers/systemd/`:
 
 ```
 ~/.config/containers/systemd/
@@ -173,7 +169,7 @@ Then runs `systemctl --user daemon-reload` so systemd discovers the new units.
 ## Environment Secrets
 
 The repo-local `.env` (at the project root) is the single source of truth for
-both local development and the Quadlet stack. `./infra/deploy.sh install`
+both local development and the Quadlet stack. `./scripts/install.sh`
 checks for it; if it doesn't exist, it copies `.env.example` to `.env` and
 **exits with an error**, requiring you to fill in real values before proceeding:
 
@@ -183,9 +179,9 @@ chmod 600 .env
 $EDITOR .env
 ```
 
-At install time, `deploy.sh` stamps the absolute path to this file into each
-Quadlet unit's `EnvironmentFile=` line — there is no per-user copy under
-`~/.config/containers/systemd/`.
+At install time, `scripts/install.sh` stamps the absolute path to this file
+into each Quadlet unit's `EnvironmentFile=` line — there is no per-user copy
+under `~/.config/containers/systemd/`.
 
 ### Required values
 
@@ -215,7 +211,7 @@ Generate strong secrets with:
 openssl rand -base64 48   # run twice for two different secrets
 ```
 
-> The file is loaded by the `centsible-api.container`, `centsible-web.container`, and `centsible-mariadb.container` units via `EnvironmentFile=<absolute path to repo>/.env`. `deploy.sh install` substitutes the placeholder `__REPO_ENV__` in the committed Quadlet files with the absolute path before copying them into `~/.config/containers/systemd/`.
+> The file is loaded by the `centsible-api.container`, `centsible-web.container`, and `centsible-mariadb.container` units via `EnvironmentFile=<absolute path to repo>/.env`. `scripts/install.sh` substitutes the placeholder `__REPO_ENV__` in the committed Quadlet files with the absolute path before copying them into `~/.config/containers/systemd/`.
 
 [↑ Go to TOC](#table-of-contents)
 
@@ -257,16 +253,19 @@ In development (`NODE_ENV=development`) the gate is bypassed entirely and Swagge
 
 ```bash
 # Start everything (pod + all containers)
-./infra/deploy.sh start
+./scripts/start.sh
 # or directly:
 systemctl --user start centsible-pod.service
 
 # Stop everything
-./infra/deploy.sh stop
+./scripts/stop.sh
 # or directly:
 systemctl --user stop centsible-pod.service
 
-# Restart a single service
+# Stop then start
+./scripts/restart.sh
+
+# Restart a single service (no script wrapper — talk to systemd directly)
 systemctl --user restart centsible-api.service
 systemctl --user restart centsible-web.service
 ```
@@ -289,16 +288,16 @@ systemctl --user enable centsible-pod.service
 
 ```bash
 # Remove installed Quadlet files and runtime, keep DB volume data
-./infra/deploy.sh uninstall
+./scripts/teardown.sh
 
 # Also remove locally built images
-./infra/deploy.sh uninstall --remove-images
+./scripts/teardown.sh --remove-images
 
 # Also purge the MariaDB named volume (destructive)
-./infra/deploy.sh uninstall --purge-volumes
+./scripts/teardown.sh --purge-volumes
 
 # Full teardown
-./infra/deploy.sh uninstall --remove-images --purge-volumes
+./scripts/teardown.sh --remove-images --purge-volumes
 ```
 
 The uninstall flow performs teardown in this order:
@@ -402,7 +401,7 @@ podman exec centsible-mariadb mariadb -u "$MARIADB_USER" -p"$MARIADB_PASSWORD" -
 
 ```bash
 # Tail all services together
-./infra/deploy.sh logs
+./scripts/logs.sh
 
 # Individual services
 journalctl --user -u centsible-api.service -f
@@ -422,17 +421,14 @@ journalctl --user -u centsible-api.service -n 100
 To deploy a new version:
 
 1. Pull / update the source code on the host.
-2. Rebuild the images:
+2. Rebuild the images and restart the stack in one shot:
    ```bash
-   ./infra/deploy.sh build
+   ./scripts/rebuild.sh
    ```
-3. Reload systemd units if any Quadlet files changed:
+   Or, if Quadlet files in `infra/quadlet/` changed, re-run the full install
+   (it's idempotent and will re-stamp the env path):
    ```bash
-   ./infra/deploy.sh install
-   ```
-4. Restart the services:
-   ```bash
-   systemctl --user restart centsible-pod.service
+   ./scripts/install.sh
    ```
 
 The API entrypoint automatically runs `bun run src/db/migrate.ts` on every start, so database migrations are applied as part of the restart.
@@ -484,7 +480,7 @@ podman exec centsible-api bun run packages/api/src/db/migrate.ts
 ### Seed the database
 
 ```bash
-./infra/deploy.sh seed
+./scripts/seed.sh
 # or:
 podman exec centsible-api bun run packages/api/src/db/seed.ts
 ```
@@ -526,7 +522,7 @@ podman volume ls
 To remove database data entirely, run:
 
 ```bash
-./infra/deploy.sh uninstall --purge-volumes
+./scripts/teardown.sh --purge-volumes
 ```
 
 [↑ Go to TOC](#table-of-contents)
@@ -577,7 +573,7 @@ The API crashes fast if a required env var is absent in production. Check `.env`
 ### Web app shows a blank page / network errors
 
 - Confirm `VITE_API_URL` was set correctly **at build time** (it is baked into the JS bundle).
-- Rebuild the web image with the correct value: `./infra/deploy.sh build`
+- Rebuild the web image with the correct value: `./scripts/rebuild.sh`
 
 ### CORS errors in browser
 

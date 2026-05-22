@@ -19,7 +19,7 @@ AutoUpdate=local
 Pod=centsible.pod
 
 # Environment variables — repo-local .env supplies any user-overridable values
-# (e.g., WEB_URL). deploy.sh stamps in the absolute path at install time.
+# (e.g., WEB_URL). scripts/install.sh stamps in the absolute path at install time.
 # VITE_API_URL is build-time only; it is baked into the JS bundle by the
 # Containerfile, not read at runtime. Caddy hard-codes :10300 in its Caddyfile.
 EnvironmentFile=__REPO_ENV__

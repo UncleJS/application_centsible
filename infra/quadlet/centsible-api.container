@@ -19,8 +19,8 @@ AutoUpdate=local
 Pod=centsible.pod
 
 # Environment variables — repo-local .env is the single source of truth.
-# deploy.sh substitutes __REPO_ENV__ with the absolute path to <repo>/.env at
-# install time. Edit <repo>/.env directly to change values.
+# scripts/install.sh substitutes __REPO_ENV__ with the absolute path to
+# <repo>/.env at install time. Edit <repo>/.env directly to change values.
 EnvironmentFile=__REPO_ENV__
 Environment=NODE_ENV=production
 Environment=API_PORT=10301

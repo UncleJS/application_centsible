@@ -1,0 +1,211 @@
+# shellcheck shell=bash
+# ── Centsible — Shared script library ────────────────────────
+# Sourced by every scripts/*.sh entrypoint. Holds the single
+# source of truth for paths, project artefact names, and the
+# helper functions that drive the Quadlet + Podman lifecycle.
+
+# ── Paths ────────────────────────────────────────────────────
+LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPTS_DIR="$(cd "$LIB_DIR/.." && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPTS_DIR/.." && pwd)"
+INFRA_DIR="$PROJECT_ROOT/infra"
+QUADLET_SRC_DIR="$INFRA_DIR/quadlet"
+QUADLET_DIR="${HOME}/.config/containers/systemd"
+ENV_FILE="$PROJECT_ROOT/.env"
+ENV_EXAMPLE="$PROJECT_ROOT/.env.example"
+
+# ── Project artefacts ────────────────────────────────────────
+PROJECT_UNITS=(
+  centsible-pod.service
+  centsible-mariadb.service
+  centsible-api.service
+  centsible-web.service
+  centsible-dev.service
+)
+PROJECT_POD="centsible"
+PROJECT_CONTAINERS=(
+  centsible-mariadb
+  centsible-api
+  centsible-web
+  centsible-dev
+)
+PROJECT_IMAGES=(
+  localhost/centsible-dev:latest
+  centsible-api:latest
+  centsible-web:latest
+)
+PROJECT_QUADLET_FILES=(
+  centsible.pod
+  centsible-mariadb.container
+  centsible-api.container
+  centsible-web.container
+  centsible-dev.container
+  centsible-db.volume
+)
+# Quadlet wraps `.volume` units with a `systemd-` prefix at runtime, so list
+# both names — the bare one (in case ad-hoc commands created it) and the
+# Quadlet-managed one. Without the prefix variant, --purge-volumes leaks data.
+PROJECT_VOLUMES=(
+  centsible-db
+  systemd-centsible-db
+)
+
+# ── Colours / logging ────────────────────────────────────────
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+info()  { echo -e "${GREEN}▸${NC} $*"; }
+warn()  { echo -e "${YELLOW}▸${NC} $*"; }
+error() { echo -e "${RED}✗${NC} $*" >&2; }
+
+# ── Env file bootstrap ───────────────────────────────────────
+stamp_env_file() {
+  if [ ! -f "$ENV_FILE" ]; then
+    warn "Repo-local .env not found at $ENV_FILE"
+    warn "Copying $ENV_EXAMPLE — EDIT BEFORE STARTING!"
+    cp "$ENV_EXAMPLE" "$ENV_FILE"
+    chmod 600 "$ENV_FILE"
+    error "Edit $ENV_FILE with real passwords, then re-run this script."
+    exit 1
+  fi
+  chmod 600 "$ENV_FILE"
+}
+
+# ── Quadlet install ──────────────────────────────────────────
+install_quadlet_units() {
+  mkdir -p "$QUADLET_DIR"
+
+  local env_path_escaped
+  env_path_escaped="$(printf '%s' "$ENV_FILE" | sed 's/[&|]/\\&/g')"
+
+  for f in "$QUADLET_SRC_DIR"/*; do
+    local dest="$QUADLET_DIR/$(basename "$f")"
+    sed "s|__REPO_ENV__|${env_path_escaped}|g" "$f" > "$dest"
+    info "installed $(basename "$f")"
+  done
+
+  if grep -l "__REPO_ENV__" "$QUADLET_DIR"/centsible-*.container >/dev/null 2>&1; then
+    error "Placeholder __REPO_ENV__ still present in installed Quadlet files."
+    exit 1
+  fi
+
+  systemctl --user daemon-reload
+  info "Quadlet files installed and systemd reloaded."
+}
+
+# ── Image builds ─────────────────────────────────────────────
+verify_before_build() {
+  info "Running required pre-build verification in centsible-dev..."
+
+  if ! podman container exists centsible-dev; then
+    error "Required dev container 'centsible-dev' is not available. Run scripts/install.sh first."
+    exit 1
+  fi
+
+  podman exec centsible-dev bun run verify:image
+}
+
+build_dev_image() {
+  info "Building centsible-dev image..."
+  podman build \
+    -t localhost/centsible-dev:latest \
+    -f "$PROJECT_ROOT/Containerfile.dev" \
+    "$PROJECT_ROOT"
+}
+
+build_api_image() {
+  info "Building centsible-api image..."
+  podman build \
+    -t centsible-api:latest \
+    -f "$INFRA_DIR/Containerfile.api" \
+    "$PROJECT_ROOT"
+}
+
+build_web_image() {
+  info "Building centsible-web image..."
+  podman build \
+    -t centsible-web:latest \
+    -f "$INFRA_DIR/Containerfile.web" \
+    --build-arg VITE_API_URL=http://localhost:10301 \
+    "$PROJECT_ROOT"
+}
+
+print_image_summary() {
+  info "Images built successfully."
+  podman images --filter "reference=centsible-*" --format "table {{.Repository}}:{{.Tag}}\t{{.Size}}\t{{.Created}}"
+}
+
+# ── Lifecycle ────────────────────────────────────────────────
+start_pod() {
+  info "Starting Centsible pod..."
+  systemctl --user start centsible-pod.service
+  info "Waiting for services..."
+  sleep 3
+}
+
+stop_pod() {
+  info "Stopping Centsible pod..."
+  systemctl --user stop centsible-pod.service || true
+}
+
+print_status() {
+  systemctl --user status centsible-pod.service --no-pager || true
+  systemctl --user status centsible-mariadb.service --no-pager || true
+  systemctl --user status centsible-api.service --no-pager || true
+  systemctl --user status centsible-web.service --no-pager || true
+  systemctl --user status centsible-dev.service --no-pager || true
+
+  info "Centsible is running:"
+  info "  Web:     http://localhost:10300"
+  info "  API:     http://localhost:10301"
+  info "  Swagger: http://localhost:10301/docs"
+  info "  Dev:     centsible-dev (utility container inside the pod)"
+}
+
+# ── Teardown helpers ─────────────────────────────────────────
+stop_units() {
+  info "Stopping Centsible systemd user units..."
+  for unit in "${PROJECT_UNITS[@]}"; do
+    systemctl --user stop "$unit" >/dev/null 2>&1 || true
+  done
+}
+
+disable_units() {
+  info "Disabling Centsible systemd user units..."
+  for unit in "${PROJECT_UNITS[@]}"; do
+    systemctl --user disable "$unit" >/dev/null 2>&1 || true
+    systemctl --user reset-failed "$unit" >/dev/null 2>&1 || true
+  done
+}
+
+remove_runtime() {
+  info "Removing Centsible pod and containers..."
+  podman pod rm -f "$PROJECT_POD" >/dev/null 2>&1 || true
+
+  for ctr in "${PROJECT_CONTAINERS[@]}"; do
+    podman rm -f "$ctr" >/dev/null 2>&1 || true
+  done
+}
+
+remove_images() {
+  info "Removing local Centsible images..."
+  for image in "${PROJECT_IMAGES[@]}"; do
+    podman image rm -f "$image" >/dev/null 2>&1 || true
+  done
+}
+
+remove_quadlet_files() {
+  info "Removing installed Quadlet files..."
+  for file in "${PROJECT_QUADLET_FILES[@]}"; do
+    rm -f "$QUADLET_DIR/$file"
+  done
+}
+
+purge_named_volumes() {
+  warn "Purging named volumes for Centsible..."
+  for volume in "${PROJECT_VOLUMES[@]}"; do
+    podman volume rm -f "$volume" >/dev/null 2>&1 || true
+  done
+}
