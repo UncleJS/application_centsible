@@ -1,0 +1,140 @@
+name: Web E2E
+
+on:
+  pull_request:
+    paths:
+      - "Containerfile.dev"
+      - "bun.lock"
+      - "package.json"
+      - "packages/shared/**"
+      - "packages/api/**"
+      - "packages/web/**"
+      - ".github/workflows/web-e2e.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "Containerfile.dev"
+      - "bun.lock"
+      - "package.json"
+      - "packages/shared/**"
+      - "packages/api/**"
+      - "packages/web/**"
+      - ".github/workflows/web-e2e.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: web-e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Throw-away credentials used only inside the CI pod. The pod is destroyed
+  # at the end of the run and nothing leaves the runner.
+  MARIADB_ROOT_PASSWORD: ci-root-password
+  DB_USER: centsible
+  DB_PASSWORD: ci-app-password
+  DB_NAME: centsible
+
+jobs:
+  web-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Podman
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y podman
+
+      - name: Security hygiene checks
+        run: |
+          if git ls-files --error-unmatch .env >/dev/null 2>&1; then
+            echo "❌ Refusing CI run: .env is tracked by git."
+            exit 1
+          fi
+
+      - name: Build dev image
+        run: podman build -t localhost/centsible-dev:ci -f Containerfile.dev .
+
+      - name: Create CI pod
+        run: podman pod create --name centsible-ci-pod
+
+      - name: Start MariaDB sidecar
+        run: |
+          podman run -d \
+            --pod centsible-ci-pod \
+            --name centsible-mariadb-ci \
+            -e MARIADB_ROOT_PASSWORD=${MARIADB_ROOT_PASSWORD} \
+            -e MARIADB_DATABASE=${DB_NAME} \
+            -e MARIADB_USER=${DB_USER} \
+            -e MARIADB_PASSWORD=${DB_PASSWORD} \
+            docker.io/library/mariadb:11.8
+
+      - name: Start dev container
+        run: |
+          podman run -d \
+            --pod centsible-ci-pod \
+            --name centsible-dev-ci \
+            -e MARIADB_ROOT_PASSWORD=${MARIADB_ROOT_PASSWORD} \
+            -e DB_HOST=localhost \
+            -e DB_PORT=3306 \
+            -e DB_USER=${DB_USER} \
+            -e DB_PASSWORD=${DB_PASSWORD} \
+            -e DB_NAME=${DB_NAME} \
+            localhost/centsible-dev:ci \
+            sleep infinity
+
+      - name: Wait for MariaDB to be ready
+        run: |
+          for i in $(seq 1 60); do
+            if podman exec centsible-mariadb-ci \
+                 mariadb -uroot -p${MARIADB_ROOT_PASSWORD} -e 'SELECT 1' >/dev/null 2>&1; then
+              echo "MariaDB ready after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "MariaDB never became ready"
+          exit 1
+
+      - name: Verify shared + API packages
+        run: |
+          podman exec centsible-dev-ci bun run --filter @centsible/shared typecheck
+          podman exec centsible-dev-ci bun run --filter @centsible/api typecheck
+          podman exec centsible-dev-ci bun run --filter @centsible/api test
+
+      - name: Verify web package (lint + build)
+        run: |
+          podman exec centsible-dev-ci bun run --filter @centsible/web typecheck
+          podman exec centsible-dev-ci bun run --filter @centsible/web lint
+          podman exec centsible-dev-ci env -u NODE_ENV bun run --filter @centsible/web build
+
+      - name: Run E2E suite
+        run: podman exec centsible-dev-ci bun run --filter @centsible/web test:e2e
+
+      - name: Extract Playwright artifacts
+        if: always()
+        run: |
+          mkdir -p artifacts
+          podman cp centsible-dev-ci:/workspace/packages/web/test-results ./artifacts/test-results || true
+          podman cp centsible-dev-ci:/workspace/packages/web/playwright-report ./artifacts/playwright-report || true
+
+      - name: Upload Playwright artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-e2e-artifacts
+          path: artifacts
+          if-no-files-found: ignore
+
+      - name: Cleanup pod
+        if: always()
+        run: |
+          podman pod stop -t 5 centsible-ci-pod || true
+          podman pod rm -f centsible-ci-pod || true
