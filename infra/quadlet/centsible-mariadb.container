@@ -10,7 +10,7 @@ BindsTo=centsible-pod.service
 After=centsible-pod.service
 
 [Container]
-Image=docker.io/library/mariadb:11.7
+Image=docker.io/library/mariadb:11.8
 ContainerName=centsible-mariadb
 AutoUpdate=registry
 
