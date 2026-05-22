@@ -4,12 +4,7 @@
     "outDir": "./dist",
     "declaration": false,
     "declarationMap": false,
-    "types": ["@types/bun"],
-    "paths": {
-      "@centsible/shared/*": ["../shared/src/*"],
-      "@centsible/shared": ["../shared/src"]
-    },
-    "baseUrl": "."
+    "types": ["@types/bun"]
   },
-  "include": ["src", "../shared/src"]
+  "include": ["src"]
 }

@@ -16,6 +16,6 @@
     "verify:image": "bun run typecheck && bun run --filter @centsible/api test && bun run --filter @centsible/web lint"
   },
   "devDependencies": {
-    "typescript": "^5.7.3"
+    "typescript": "^6.0.3"
   }
 }

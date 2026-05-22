@@ -23,6 +23,10 @@ export default tseslint.config(
         "warn",
         { allowConstantExport: true },
       ],
+      // The codebase intentionally uses the useState+useEffect+AbortController
+      // pattern for data fetching (no React Query / SWR). Disable v7's new
+      // recommendation that fights that pattern.
+      "react-hooks/set-state-in-effect": "off",
     },
   },
 );
