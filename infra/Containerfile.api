@@ -4,7 +4,7 @@
 # Usage: podman build -t centsible-api:latest -f infra/Containerfile.api .
 
 # ── Stage 1: Install + build ─────────────────────────────────
-FROM docker.io/oven/bun:1.3.8-alpine AS build
+FROM docker.io/oven/bun:1.3.12-alpine AS build
 
 WORKDIR /app
 
@@ -31,7 +31,7 @@ RUN bun build packages/api/src/index.ts \
   --minify
 
 # ── Stage 2: Production runtime ──────────────────────────────
-FROM docker.io/oven/bun:1.3.8-alpine AS runtime
+FROM docker.io/oven/bun:1.3.12-alpine AS runtime
 
 WORKDIR /app
 
