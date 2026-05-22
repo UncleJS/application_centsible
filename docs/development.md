@@ -114,7 +114,6 @@ application_centsible/
 │   ├── Containerfile.api     # Multi-stage build for the Bun/Elysia API
 │   ├── Containerfile.web     # Multi-stage build for the Next.js frontend
 │   ├── api-entrypoint.sh     # DB readiness check + migration runner + process exec
-│   ├── .env.centsible.example # Template for production secrets
 │   └── quadlet/
 │       ├── centsible.pod                # Podman pod definition (ports 10300, 10301)
 │       ├── centsible-mariadb.container  # MariaDB 11.7
@@ -127,7 +126,7 @@ application_centsible/
 │   ├── api.md                # Full API reference
 │   └── user-guide.md         # End-user documentation
 │
-├── .env.example              # Template for local development .env
+├── .env.example              # Repo-local env template (dev + Quadlet stack)
 ├── bunfig.toml               # Bun workspace configuration
 ├── bun.lock
 └── package.json              # Workspace root with shared scripts
@@ -184,13 +183,13 @@ It does **not** serve the web UI or API itself. The published app ports `10300/1
 ### Podman + Quadlet stack (default)
 
 ```bash
-# 1. Prepare the Quadlet env file
-mkdir -p ~/.config/containers/systemd
-cp infra/.env.centsible.example ~/.config/containers/systemd/.env.centsible
-# Edit ~/.config/containers/systemd/.env.centsible
+# 1. Prepare the repo-local .env (one file, dev + Quadlet)
+cp .env.example .env
+# Edit .env — set MARIADB_*, JWT_SECRET, JWT_REFRESH_SECRET to real values.
 
 # 2. Bootstrap the utility dev container used for verify:image
 podman build -t localhost/centsible-dev:latest -f Containerfile.dev .
+mkdir -p ~/.config/containers/systemd
 cp infra/quadlet/centsible-dev.container ~/.config/containers/systemd/centsible-dev.container
 systemctl --user daemon-reload
 systemctl --user start centsible-dev.service

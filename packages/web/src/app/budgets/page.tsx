@@ -4,6 +4,11 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { api } from "@/lib/api";
 import { useAuthStore, useExchangeRateStore } from "@/lib/store";
 import { formatCurrency, getMonthName } from "@/lib/format";
+import {
+  monthsBetween,
+  parseYmd,
+  utcTodayYearMonth,
+} from "@centsible/shared";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -483,8 +488,9 @@ export default function BudgetsPage() {
   const { rates: exchangeRates, fetchRates } = useExchangeRateStore();
 
   const now = new Date();
-  const [year, setYear] = useState(now.getFullYear());
-  const [month, setMonth] = useState(now.getMonth() + 1);
+  const initialYm = utcTodayYearMonth(now);
+  const [year, setYear] = useState(initialYm.year);
+  const [month, setMonth] = useState(initialYm.month);
 
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -658,26 +664,24 @@ export default function BudgetsPage() {
     [subscriptions, exchangeRates, currency]
   );
 
-  // Total monthly savings needed
+  // Total monthly savings needed — calendar-only math, no Date/TZ involved,
+  // so the answer is identical regardless of where the viewer's machine clock
+  // is set.
   const totalMonthlySavings = useMemo(() => {
+    const currentYm = { year, month };
     return savingsGoals.reduce((sum, goal) => {
       if (goal.archivedAt) return sum;
       const current = parseFloat(goal.currentAmount || "0");
       const target = parseFloat(goal.targetAmount || "0");
       if (current >= target) return sum;
 
-      const targetDate = new Date(goal.targetDate + "T00:00:00Z");
-      const targetYear = targetDate.getUTCFullYear();
-      const targetMonth = targetDate.getUTCMonth() + 1;
+      const parsed = parseYmd(goal.targetDate);
+      if (!parsed) return sum;
+      const targetYm = { year: parsed.year, month: parsed.month };
+      const delta = monthsBetween(currentYm, targetYm);
+      if (delta <= 0) return sum;
 
-      const monthsRemaining = Math.max(
-        1,
-        (targetYear - year) * 12 + (targetMonth - month)
-      );
-
-      if ((targetYear - year) * 12 + (targetMonth - month) <= 0) return sum;
-
-      return sum + (target - current) / monthsRemaining;
+      return sum + (target - current) / delta;
     }, 0);
   }, [savingsGoals, year, month]);
 
@@ -701,10 +705,9 @@ export default function BudgetsPage() {
 
   const budgetedCategoryIds = new Set(budgets.map((b) => b.categoryId));
 
-  const currentYear = now.getFullYear();
-  const currentMonth = now.getMonth() + 1;
+  const todayYm = utcTodayYearMonth(now);
   const isPastMonth =
-    year < currentYear || (year === currentYear && month < currentMonth);
+    year < todayYm.year || (year === todayYm.year && month < todayYm.month);
 
   return (
     <div className="flex flex-col gap-8">

@@ -21,7 +21,9 @@ Pod=centsible.pod
 Volume=centsible-db.volume:/var/lib/mysql:Z
 
 # Load environment variables (MARIADB_ROOT_PASSWORD, MARIADB_DATABASE, etc.)
-EnvironmentFile=%h/.config/containers/systemd/.env.centsible
+# from the repo-local .env. deploy.sh stamps in the absolute path at install
+# time. Edit <repo>/.env to change values.
+EnvironmentFile=__REPO_ENV__
 
 # Health check
 HealthCmd=healthcheck.sh --connect --innodb_initialized

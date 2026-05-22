@@ -11,6 +11,27 @@ function isValidCurrency(code: string): boolean {
   return supportedSet.has(code.toUpperCase());
 }
 
+/**
+ * Sanity-check an exchange rate before persisting it. Catches upstream API
+ * regressions where a rate flips direction (returning the inverse) or where
+ * a same-currency pair would silently end up as something other than 1.0,
+ * which would silently corrupt every conversion that uses it.
+ */
+const RATE_SANE_MIN = 1e-6;
+const RATE_SANE_MAX = 1e6;
+
+function rateRejectionReason(
+  base: string,
+  target: string,
+  rate: number
+): string | null {
+  if (!Number.isFinite(rate)) return "non-finite";
+  if (rate <= 0) return "non-positive";
+  if (base === target && Math.abs(rate - 1) > 1e-6) return "same-currency-not-one";
+  if (rate < RATE_SANE_MIN || rate > RATE_SANE_MAX) return "out-of-bounds";
+  return null;
+}
+
 export const exchangeRateRoutes = new Elysia({
   prefix: "/exchange-rates",
   detail: { tags: ["Exchange Rates"] },
@@ -43,31 +64,54 @@ export const exchangeRateRoutes = new Elysia({
 
       const data = await response.json();
 
-      // Cache rates in the database — batch insert instead of sequential
+      // Cache rates in the database — batch insert instead of sequential.
+      // Skip any rate that fails the sanity check so a regressed upstream
+      // response can't silently corrupt every downstream conversion.
       const today = new Date().toISOString().slice(0, 10);
       if (data.rates) {
         const entries = Object.entries(data.rates as Record<string, number>);
-        if (entries.length > 0) {
-          const values = entries.map(([currency, rate]) => ({
-            baseCurrency: base,
-            targetCurrency: currency,
-            rate: String(rate),
-            date: today,
-          }));
-
-          // Insert all rates in a single batch; on conflict update the rate
-          // Drizzle handles multi-row INSERT with ON DUPLICATE KEY UPDATE
-          for (let i = 0; i < values.length; i += 50) {
-            const batch = values.slice(i, i + 50);
-            await db
-              .insert(schema.exchangeRates)
-              .values(batch)
-              .onDuplicateKeyUpdate({
-                set: {
-                  rate: sql`VALUES(rate)`,
-                },
-              });
+        const values: Array<{
+          baseCurrency: string;
+          targetCurrency: string;
+          rate: string;
+          date: string;
+        }> = [];
+        for (const [currency, rate] of entries) {
+          const target = currency.toUpperCase();
+          const numeric = Number(rate);
+          const rejection = rateRejectionReason(base, target, numeric);
+          if (rejection) {
+            console.warn(
+              JSON.stringify({
+                msg: "rejected-exchange-rate",
+                base,
+                target,
+                rate: numeric,
+                reason: rejection,
+              })
+            );
+            continue;
           }
+          values.push({
+            baseCurrency: base,
+            targetCurrency: target,
+            rate: String(numeric),
+            date: today,
+          });
+        }
+
+        // Insert all rates in a single batch; on conflict update the rate
+        // Drizzle handles multi-row INSERT with ON DUPLICATE KEY UPDATE
+        for (let i = 0; i < values.length; i += 50) {
+          const batch = values.slice(i, i + 50);
+          await db
+            .insert(schema.exchangeRates)
+            .values(batch)
+            .onDuplicateKeyUpdate({
+              set: {
+                rate: sql`VALUES(rate)`,
+              },
+            });
         }
       }
 

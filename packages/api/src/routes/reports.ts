@@ -4,6 +4,12 @@ import { db, schema } from "../db";
 import { eq, and, isNull, gte, lt, sql } from "drizzle-orm";
 import type { ForecastMonth, ForecastItem } from "@centsible/shared";
 import {
+  addMonths,
+  monthsBetween,
+  parseYmd,
+  utcTodayYearMonth,
+} from "@centsible/shared";
+import {
   convertToBaseCurrency,
   loadLatestRateMap,
   toFixed2,
@@ -43,13 +49,27 @@ function periodDates(year: number, month: number) {
   return { startDate, endDate };
 }
 
-/** Sanitise a single CSV cell to prevent formula injection */
-function csvSafeCell(value: string): string {
-  // If the value starts with a formula trigger character, prefix with a single quote
-  if (/^[=+\-@\t\r]/.test(value)) {
-    return `'${value}`;
+/**
+ * Format a single CSV cell:
+ *  - Defang spreadsheet formula triggers at the start of the cell ('=, +, -, @,
+ *    leading tab/CR) by prefixing a single quote.
+ *  - Apply RFC 4180 quoting: any cell containing a quote, comma, CR, or LF gets
+ *    wrapped in quotes with embedded quotes doubled.
+ *
+ * The previous implementation only handled the formula prefix and left callers
+ * to do partial quoting around it, which broke on values containing commas or
+ * embedded quotes (CWE-1236).
+ */
+function csvCell(value: string | number | null | undefined): string {
+  if (value === null || value === undefined) return "";
+  let s = String(value);
+  if (s.length > 0 && /^[=+\-@\t\r]/.test(s)) {
+    s = `'${s}`;
   }
-  return value;
+  if (/[",\r\n]/.test(s)) {
+    s = `"${s.replace(/"/g, '""')}"`;
+  }
+  return s;
 }
 
 export const reportRoutes = new Elysia({
@@ -252,7 +272,7 @@ export const reportRoutes = new Elysia({
   // ── Forward expense forecast (up to 12 months) ──
   .get("/forecast", async ({ user, query }) => {
     const months = Math.min(Math.max(Number(query.months) || 3, 1), 12);
-    const today = new Date();
+    const todayYm = utcTodayYearMonth();
     const forecast: ForecastMonth[] = [];
 
     // Get active subscriptions (expense-only)
@@ -289,8 +309,8 @@ export const reportRoutes = new Elysia({
       );
 
     // Get latest month's budgets as baseline
-    const currentYear = today.getFullYear();
-    const currentMonth = today.getMonth() + 1;
+    const currentYear = todayYm.year;
+    const currentMonth = todayYm.month;
 
     // Expense budgets only
     const latestBudgets = await db
@@ -348,12 +368,12 @@ export const reportRoutes = new Elysia({
     const rates = await loadLatestRateMap(user.defaultCurrency, currencies);
     const forecastWarnings: ConversionWarning[] = [];
 
-    // i=0 → current month; i=1 → next month; etc.
+    // i=0 → current month; i=1 → next month; etc. All math in UTC calendar
+    // space so the forecast doesn't shift with the viewer's timezone.
     for (let i = 0; i < months; i++) {
-      const fYear = today.getMonth() + i >= 12
-        ? today.getFullYear() + Math.floor((today.getMonth() + i) / 12)
-        : today.getFullYear();
-      const fMonth = ((today.getMonth() + i) % 12) + 1;
+      const forecastYm = addMonths(todayYm, i);
+      const fYear = forecastYm.year;
+      const fMonth = forecastYm.month;
       const items: ForecastItem[] = [];
 
       // Calculate subscription costs for this month (expense subscriptions)
@@ -418,17 +438,19 @@ export const reportRoutes = new Elysia({
           parseFloat(goal.targetAmount) - parseFloat(goal.currentAmount || "0");
         if (remaining <= 0) continue;
 
-        const targetDate = new Date(goal.targetDate + "T00:00:00Z");
-        // Calculate months remaining relative to the forecast month, not today
+        // Calendar-only math: parse the goal's target date into integer
+        // year/month and compare against the forecast year/month. Skips Date
+        // entirely, which means the result doesn't shift with the viewer's TZ.
+        const target = parseYmd(goal.targetDate);
+        if (!target) continue;
+        const targetYm = { year: target.year, month: target.month };
         const monthsRemaining = Math.max(
           1,
-          (targetDate.getUTCFullYear() - fYear) * 12 +
-            (targetDate.getUTCMonth() + 1 - fMonth)
+          monthsBetween(forecastYm, targetYm) + 1
         );
+        const targetReached = monthsBetween(forecastYm, targetYm) < 0;
 
-        const forecastMonthStart = new Date(Date.UTC(fYear, fMonth - 1, 1));
-
-        if (forecastMonthStart <= targetDate) {
+        if (!targetReached) {
           const monthlyContribution = remaining / monthsRemaining;
           const converted = convertToBaseCurrency(
             monthlyContribution,
@@ -525,13 +547,14 @@ export const reportRoutes = new Elysia({
   // ── Monthly trend (last N months) ──
   .get("/trend", async ({ user, query }) => {
     const months = Math.min(Math.max(Number(query.months) || 6, 1), 24);
-    const today = new Date();
 
-    // Calculate overall date range for single query
-    const startD = new Date(today.getFullYear(), today.getMonth() - (months - 1), 1);
-    const endD = new Date(today.getFullYear(), today.getMonth() + 1, 1);
-    const rangeStart = `${startD.getFullYear()}-${String(startD.getMonth() + 1).padStart(2, "0")}-01`;
-    const rangeEnd = `${endD.getFullYear()}-${String(endD.getMonth() + 1).padStart(2, "0")}-01`;
+    // Calendar window: months back through current month (UTC), so the answer
+    // does not shift with the viewer's local timezone.
+    const todayYm = utcTodayYearMonth();
+    const startYm = addMonths(todayYm, -(months - 1));
+    const endYm = addMonths(todayYm, 1);
+    const rangeStart = `${startYm.year}-${String(startYm.month).padStart(2, "0")}-01`;
+    const rangeEnd = `${endYm.year}-${String(endYm.month).padStart(2, "0")}-01`;
 
     // Single query with GROUP BY year/month instead of N+1 loop
     const totals = await db
@@ -584,9 +607,9 @@ export const reportRoutes = new Elysia({
     // Build results array in chronological order
     const results = [];
     for (let i = months - 1; i >= 0; i--) {
-      const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
-      const year = d.getFullYear();
-      const month = d.getMonth() + 1;
+      const ym = addMonths(todayYm, -i);
+      const year = ym.year;
+      const month = ym.month;
       const key = `${year}-${month}`;
       const entry = lookup.get(key) || { income: 0, expenses: 0 };
 
@@ -637,11 +660,17 @@ export const reportRoutes = new Elysia({
 
     const csv = [
       "Date,Type,Category,Description,Amount,Currency",
-      ...rows.map(
-        (r) =>
-          `${r.date},${r.type},"${csvSafeCell(r.category || "")}","${csvSafeCell((r.description || "").replace(/"/g, '""'))}",${r.amount},${r.currency}`
+      ...rows.map((r) =>
+        [
+          csvCell(r.date),
+          csvCell(r.type),
+          csvCell(r.category),
+          csvCell(r.description),
+          csvCell(r.amount),
+          csvCell(r.currency),
+        ].join(",")
       ),
-    ].join("\n");
+    ].join("\r\n");
 
     set.headers["content-type"] = "text/csv";
     set.headers["content-disposition"] =

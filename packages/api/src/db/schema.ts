@@ -13,12 +13,14 @@ import {
 import { sql } from "drizzle-orm";
 
 // ── Timestamp helpers ──
+// All datetime columns end in `_UTC` per the project naming standard.
+// TypeScript property names stay camelCase for ergonomic queries.
 
 const timestamps = {
-  createdAt: datetime("created_at", { mode: "date" })
+  createdAt: datetime("created_at_UTC", { mode: "date" })
     .notNull()
     .default(sql`CURRENT_TIMESTAMP`),
-  updatedAt: datetime("updated_at", { mode: "date" })
+  updatedAt: datetime("updated_at_UTC", { mode: "date" })
     .notNull()
     .default(sql`CURRENT_TIMESTAMP`)
     .$onUpdate(() => new Date()),
@@ -26,7 +28,7 @@ const timestamps = {
 
 const archivable = {
   ...timestamps,
-  archivedAt: datetime("archived_at", { mode: "date" }),
+  archivedAt: datetime("archived_at_UTC", { mode: "date" }),
 };
 
 // ── Users ──
@@ -42,9 +44,15 @@ export const users = mysqlTable(
       .notNull()
       .default("GBP"),
     ...archivable,
+    // Generated column: equal to `email` when active, NULL when archived.
+    // Indexed below so archived users free up their email for re-registration.
+    activeEmail: varchar("active_email", { length: 255 }).generatedAlwaysAs(
+      sql`(CASE WHEN \`archived_at_UTC\` IS NULL THEN \`email\` ELSE NULL END)`,
+      { mode: "virtual" }
+    ),
   },
   (table) => [
-    uniqueIndex("users_email_unique").on(table.email),
+    uniqueIndex("users_active_email_unique").on(table.activeEmail),
   ]
 );
 
@@ -60,11 +68,11 @@ export const refreshTokens = mysqlTable(
     tokenId: varchar("token_id", { length: 64 }).notNull(),
     familyId: varchar("family_id", { length: 64 }).notNull(),
     tokenHash: varchar("token_hash", { length: 255 }).notNull(),
-    expiresAt: datetime("expires_at", { mode: "date" }).notNull(),
-    createdAt: datetime("created_at", { mode: "date" })
+    expiresAt: datetime("expires_at_UTC", { mode: "date" }).notNull(),
+    createdAt: datetime("created_at_UTC", { mode: "date" })
       .notNull()
       .default(sql`CURRENT_TIMESTAMP`),
-    revokedAt: datetime("revoked_at", { mode: "date" }),
+    revokedAt: datetime("revoked_at_UTC", { mode: "date" }),
     revokedReason: varchar("revoked_reason", { length: 32 }),
   },
   (table) => [
@@ -145,15 +153,17 @@ export const budgets = mysqlTable(
     amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
     currency: varchar("currency", { length: 3 }).notNull(),
     ...archivable,
+    // Generated column: composite natural key for active rows only, NULL when
+    // archived. Indexed below so archiving a budget frees up the period for a
+    // new one. ON DUPLICATE KEY UPDATE in the upsert still fires against this.
+    activePeriodKey: varchar("active_period_key", { length: 64 }).generatedAlwaysAs(
+      sql`(CASE WHEN \`archived_at_UTC\` IS NULL THEN CONCAT_WS(':', \`user_id\`, \`category_id\`, \`year\`, \`month\`) ELSE NULL END)`,
+      { mode: "virtual" }
+    ),
   },
   (table) => [
     index("budgets_user_period_idx").on(table.userId, table.year, table.month),
-    uniqueIndex("budgets_user_cat_period_unique").on(
-      table.userId,
-      table.categoryId,
-      table.year,
-      table.month
-    ),
+    uniqueIndex("budgets_active_period_unique").on(table.activePeriodKey),
   ]
 );
 
@@ -195,10 +205,10 @@ export const savingsContributions = mysqlTable(
     currency: varchar("currency", { length: 3 }).notNull(),
     note: varchar("note", { length: 255 }),
     date: date("date", { mode: "string" }).notNull(),
-    createdAt: datetime("created_at", { mode: "date" })
+    createdAt: datetime("created_at_UTC", { mode: "date" })
       .notNull()
       .default(sql`CURRENT_TIMESTAMP`),
-    archivedAt: datetime("archived_at", { mode: "date" }),
+    archivedAt: datetime("archived_at_UTC", { mode: "date" }),
   },
   (table) => [
     index("savings_contributions_goal_idx").on(table.savingsGoalId),
@@ -267,7 +277,7 @@ export const rateLimitCounters = mysqlTable(
     id: int("id").primaryKey().autoincrement(),
     scope: varchar("scope", { length: 32 }).notNull(),
     identifier: varchar("identifier", { length: 255 }).notNull(),
-    windowStart: datetime("window_start", { mode: "date" }).notNull(),
+    windowStart: datetime("window_start_UTC", { mode: "date" }).notNull(),
     requestCount: int("request_count").notNull().default(0),
     ...archivable,
   },
@@ -296,7 +306,7 @@ export const exchangeRates = mysqlTable(
     targetCurrency: varchar("target_currency", { length: 3 }).notNull(),
     rate: decimal("rate", { precision: 16, scale: 8 }).notNull(),
     date: date("date", { mode: "string" }).notNull(),
-    createdAt: datetime("created_at", { mode: "date" })
+    createdAt: datetime("created_at_UTC", { mode: "date" })
       .notNull()
       .default(sql`CURRENT_TIMESTAMP`),
   },

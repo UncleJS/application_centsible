@@ -17,7 +17,10 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 QUADLET_DIR="${HOME}/.config/containers/systemd"
-ENV_FILE="${QUADLET_DIR}/.env.centsible"
+# Repo-local env is the single source of truth. Quadlet units reference this
+# path via EnvironmentFile= once deploy.sh stamps it in.
+ENV_FILE="${PROJECT_ROOT}/.env"
+ENV_EXAMPLE="${PROJECT_ROOT}/.env.example"
 PROJECT_UNITS=(
   centsible-pod.service
   centsible-mariadb.service
@@ -120,18 +123,37 @@ build() {
 install_quadlet() {
   mkdir -p "$QUADLET_DIR"
 
-  # Copy Quadlet files
+  # The repo .env is the single source of truth. Bootstrap from .env.example
+  # if it doesn't exist yet, then stop so the user can edit secrets in place.
+  if [ ! -f "$ENV_FILE" ]; then
+    warn "Repo-local .env not found at $ENV_FILE"
+    warn "Copying $ENV_EXAMPLE — EDIT BEFORE STARTING!"
+    cp "$ENV_EXAMPLE" "$ENV_FILE"
+    chmod 600 "$ENV_FILE"
+    error "Edit $ENV_FILE with real passwords, then re-run: $0 install"
+    return 1
+  fi
+
+  # Lock down permissions on the live env file. Idempotent.
+  chmod 600 "$ENV_FILE"
+
+  # Escape the path for sed (handles spaces, slashes are already separator-safe
+  # because we use | as the sed delimiter).
+  local env_path_escaped
+  env_path_escaped="$(printf '%s' "$ENV_FILE" | sed 's/[&|]/\\&/g')"
+
+  # Copy Quadlet files, substituting __REPO_ENV__ with the absolute repo-local
+  # .env path. Files containing the placeholder will end up referencing the
+  # repo .env via EnvironmentFile=.
   for f in "$SCRIPT_DIR/quadlet/"*; do
-    cp -v "$f" "$QUADLET_DIR/"
+    local dest="$QUADLET_DIR/$(basename "$f")"
+    sed "s|__REPO_ENV__|${env_path_escaped}|g" "$f" > "$dest"
+    info "installed $(basename "$f")"
   done
 
-  # Check .env file
-  if [ ! -f "$ENV_FILE" ]; then
-    warn ".env file not found at $ENV_FILE"
-    warn "Copying example — EDIT BEFORE STARTING!"
-    cp "$SCRIPT_DIR/.env.centsible.example" "$ENV_FILE"
-    chmod 600 "$ENV_FILE"
-    error "Edit $ENV_FILE with real passwords, then re-run: $0 start"
+  # Sanity check — make sure no placeholder leaked into the installed units.
+  if grep -l "__REPO_ENV__" "$QUADLET_DIR"/centsible-*.container >/dev/null 2>&1; then
+    error "Placeholder __REPO_ENV__ still present in installed Quadlet files."
     return 1
   fi
 

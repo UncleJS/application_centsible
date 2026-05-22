@@ -9,8 +9,11 @@ Documentation=https://docs.podman.io/en/latest/markdown/podman-pod-create.1.html
 [Pod]
 PodName=centsible
 Network=slirp4netns:port_handler=slirp4netns
-PublishPort=0.0.0.0:10300:10300
-PublishPort=0.0.0.0:10301:10301
+# Bind to loopback only — local-only deployment. To expose externally,
+# put a reverse proxy on the host that listens on 0.0.0.0 and forwards
+# to 127.0.0.1:10300 / 127.0.0.1:10301.
+PublishPort=127.0.0.1:10300:10300
+PublishPort=127.0.0.1:10301:10301
 # 3306 — MariaDB NOT exposed externally
 
 [Install]

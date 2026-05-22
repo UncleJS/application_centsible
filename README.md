@@ -54,20 +54,20 @@ A self-hosted personal finance tracker. Track income and expenses, set monthly b
 **Prerequisites:** rootless [Podman](https://podman.io/), `systemd --user`, and Bun available on the host for repo tooling.
 
 ```bash
-# 1. Create the Quadlet environment file
-mkdir -p ~/.config/containers/systemd
-cp infra/.env.centsible.example ~/.config/containers/systemd/.env.centsible
-# Edit ~/.config/containers/systemd/.env.centsible before continuing
+# 1. Create the repo-local env file
+cp .env.example .env
+# Edit .env — set MARIADB_*, JWT_SECRET, JWT_REFRESH_SECRET to real values.
 
 # 2. Bootstrap the utility dev container used for verification
 podman build -t localhost/centsible-dev:latest -f Containerfile.dev .
+mkdir -p ~/.config/containers/systemd
 cp infra/quadlet/centsible-dev.container ~/.config/containers/systemd/centsible-dev.container
 systemctl --user daemon-reload
 systemctl --user start centsible-dev.service
 
 # 3. Build and start the repo-configured stack
 ./infra/deploy.sh build
-./infra/deploy.sh install
+./infra/deploy.sh install   # stamps the absolute .env path into each unit
 ./infra/deploy.sh start
 ```
 
@@ -132,7 +132,6 @@ application_centsible/
 │   ├── Containerfile.web       # Multi-stage Podman build for the web app
 │   ├── api-entrypoint.sh       # Waits for DB, runs migrations, starts API
 │   ├── deploy.sh               # One-command build + deploy helper
-│   ├── .env.centsible.example  # Production secrets template
 │   └── quadlet/                # systemd Quadlet unit files
 │       ├── centsible.pod
 │       ├── centsible-api.container
@@ -140,7 +139,7 @@ application_centsible/
 │       ├── centsible-dev.container
 │       ├── centsible-web.container
 │       └── centsible-mariadb.container
-├── .env.example      # Local development environment template
+├── .env.example      # Repo-local env template (dev + Quadlet stack)
 └── bun.lock
 ```
 

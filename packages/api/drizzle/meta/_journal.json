@@ -29,6 +29,20 @@
       "when": 1772310265157,
       "tag": "0003_security_currency_hardening",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1779728400000,
+      "tag": "0004_utc_column_suffix",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1779728500000,
+      "tag": "0005_active_unique_indexes",
+      "breakpoints": true
     }
   ]
 }

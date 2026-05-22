@@ -57,6 +57,12 @@ export const config = {
   // CORS
   webUrl: process.env.WEB_URL || "http://localhost:3000",
 
+  // Swagger /docs and /openapi.json gate. In production, requests must present
+  // `Authorization: Bearer <DOCS_AUTH_TOKEN>` to read the schema. Leaving this
+  // empty in production disables docs entirely (the API returns 503 to anyone
+  // who hits /docs). In development, /docs is always open.
+  docsAuthToken: process.env.DOCS_AUTH_TOKEN?.trim() || "",
+
   // Database
   dbHost: requireEnv("DB_HOST", "localhost"),
   dbPort: Number(process.env.DB_PORT) || 3306,

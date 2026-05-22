@@ -8,6 +8,7 @@ import {
   toFixed2,
   type ConversionWarning,
 } from "../lib/currency";
+import { utcTodayYearMonth } from "@centsible/shared";
 import { isSupportedCurrency, supportedCurrencyError } from "../lib/supported-currency";
 
 const amountPattern = "^\\d+(\\.\\d{1,2})?$";
@@ -261,12 +262,10 @@ export const budgetRoutes = new Elysia({
         return { error: "Budget not found" };
       }
 
-      const now = new Date();
-      const currentYear = now.getFullYear();
-      const currentMonth = now.getMonth() + 1;
+      const today = utcTodayYearMonth();
       if (
-        existing.year < currentYear ||
-        (existing.year === currentYear && existing.month < currentMonth)
+        existing.year < today.year ||
+        (existing.year === today.year && existing.month < today.month)
       ) {
         set.status = 403;
         return { error: "Cannot edit budgets for past months" };
@@ -311,12 +310,10 @@ export const budgetRoutes = new Elysia({
       return { error: "Budget not found" };
     }
 
-    const nowDel = new Date();
-    const currentYearDel = nowDel.getFullYear();
-    const currentMonthDel = nowDel.getMonth() + 1;
+    const todayDel = utcTodayYearMonth();
     if (
-      existing.year < currentYearDel ||
-      (existing.year === currentYearDel && existing.month < currentMonthDel)
+      existing.year < todayDel.year ||
+      (existing.year === todayDel.year && existing.month < todayDel.month)
     ) {
       set.status = 403;
       return { error: "Cannot edit budgets for past months" };

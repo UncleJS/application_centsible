@@ -170,13 +170,20 @@ Then runs `systemctl --user daemon-reload` so systemd discovers the new units.
 
 ## Environment Secrets
 
-The install step checks for `~/.config/containers/systemd/.env.centsible`. If it doesn't exist, it copies the example file and **exits with an error**, requiring you to fill in real values before proceeding:
+The repo-local `.env` (at the project root) is the single source of truth for
+both local development and the Quadlet stack. `./infra/deploy.sh install`
+checks for it; if it doesn't exist, it copies `.env.example` to `.env` and
+**exits with an error**, requiring you to fill in real values before proceeding:
 
 ```bash
-cp infra/.env.centsible.example ~/.config/containers/systemd/.env.centsible
-chmod 600 ~/.config/containers/systemd/.env.centsible
-$EDITOR ~/.config/containers/systemd/.env.centsible
+cp .env.example .env
+chmod 600 .env
+$EDITOR .env
 ```
+
+At install time, `deploy.sh` stamps the absolute path to this file into each
+Quadlet unit's `EnvironmentFile=` line — there is no per-user copy under
+`~/.config/containers/systemd/`.
 
 ### Required values
 
@@ -206,7 +213,7 @@ Generate strong secrets with:
 openssl rand -base64 48   # run twice for two different secrets
 ```
 
-> The file is loaded by both the `centsible-api.container` and `centsible-mariadb.container` units via `EnvironmentFile=%h/.config/containers/systemd/.env.centsible`. The `%h` expands to the home directory of the running user.
+> The file is loaded by the `centsible-api.container`, `centsible-web.container`, and `centsible-mariadb.container` units via `EnvironmentFile=<absolute path to repo>/.env`. `deploy.sh install` substitutes the placeholder `__REPO_ENV__` in the committed Quadlet files with the absolute path before copying them into `~/.config/containers/systemd/`.
 
 [↑ Go to TOC](#table-of-contents)
 
@@ -345,9 +352,9 @@ podman logs --tail 100 centsible-web
 podman port centsible-web
 podman port centsible-api
 
-# Database sanity check (uses the installed Quadlet env file)
+# Database sanity check (uses the repo-local .env)
 set -a
-. "$HOME/.config/containers/systemd/.env.centsible"
+. "$(git rev-parse --show-toplevel)/.env"
 set +a
 podman exec centsible-mariadb mariadb -u "$MARIADB_USER" -p"$MARIADB_PASSWORD" -D "$MARIADB_DATABASE" -e 'SHOW TABLES;'
 ```
@@ -513,7 +520,7 @@ https://centsible.example.com  →  http://localhost:10300  (web)
 https://api.centsible.example.com  →  http://localhost:10301  (api, if exposed separately)
 ```
 
-Remember to update `WEB_URL` in `.env.centsible` and `NEXT_PUBLIC_API_URL` build-arg to match the public URLs, then rebuild the web image.
+Remember to update `WEB_URL` in `.env` and `NEXT_PUBLIC_API_URL` build-arg to match the public URLs, then rebuild the web image.
 
 [↑ Go to TOC](#table-of-contents)
 
@@ -526,11 +533,11 @@ Remember to update `WEB_URL` in `.env.centsible` and `NEXT_PUBLIC_API_URL` build
 The entrypoint retries the TCP connection 30 times (2 s apart). If it still fails after 60 s:
 - Check the MariaDB container is running: `systemctl --user status centsible-mariadb.service`
 - Check logs: `journalctl --user -u centsible-mariadb.service -n 50`
-- Confirm the `DB_PASSWORD` in `.env.centsible` matches `MARIADB_PASSWORD`
+- Confirm the `DB_PASSWORD` in `.env` matches `MARIADB_PASSWORD`
 
 ### "Missing required environment variable" on API startup
 
-The API crashes fast if a required env var is absent in production. Check `.env.centsible` contains all required keys listed in [Environment Secrets](#environment-secrets).
+The API crashes fast if a required env var is absent in production. Check `.env` contains all required keys listed in [Environment Secrets](#environment-secrets).
 
 ### Web app shows a blank page / network errors
 
@@ -539,7 +546,7 @@ The API crashes fast if a required env var is absent in production. Check `.env.
 
 ### CORS errors in browser
 
-`WEB_URL` in `.env.centsible` must exactly match the origin the browser uses (scheme + host + port). A mismatch causes CORS preflight failures. Update the value and restart the API container.
+`WEB_URL` in `.env` must exactly match the origin the browser uses (scheme + host + port). A mismatch causes CORS preflight failures. Update the value and restart the API container.
 
 ### Quadlet units not appearing in systemd
 

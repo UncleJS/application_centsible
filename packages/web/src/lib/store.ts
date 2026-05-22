@@ -43,6 +43,12 @@ function clearStorage() {
   localStorage.removeItem(STORAGE_KEY);
 }
 
+// Module-level mutex so React strict mode's double-invoked effects (and any
+// other accidental concurrent caller) share a single /auth/me round-trip
+// instead of racing two refreshes, which can revoke the entire token family
+// via the API's replay-detection path.
+let hydrateInFlight: Promise<void> | null = null;
+
 export const useAuthStore = create<AuthState>((set) => {
   api.onAuthError(() => {
     clearStorage();
@@ -77,15 +83,17 @@ export const useAuthStore = create<AuthState>((set) => {
     },
 
     hydrate: () => {
+      if (hydrateInFlight) return;
       set({ isLoading: true });
       const stored = loadFromStorage();
       if (stored) {
         // Keep cached user for immediate UI hints, but do not mark authenticated
-        // until the server session is verified.
+        // until the server session is verified. AppShell guards against
+        // painting auth-only routes while isLoading is true.
         set({ user: stored.user, isAuthenticated: false, isLoading: true });
       }
 
-      api
+      hydrateInFlight = api
         .getCurrentUser()
         .then((result) => {
           const user = result.data.user;
@@ -95,6 +103,9 @@ export const useAuthStore = create<AuthState>((set) => {
         .catch(() => {
           clearStorage();
           set({ user: null, isAuthenticated: false, isLoading: false });
+        })
+        .finally(() => {
+          hydrateInFlight = null;
         });
     },
 

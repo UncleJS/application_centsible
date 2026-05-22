@@ -2,6 +2,9 @@ import { Elysia } from "elysia";
 import { swagger } from "@elysiajs/swagger";
 import { cors } from "@elysiajs/cors";
 import { jwt } from "@elysiajs/jwt";
+import { timingSafeEqual } from "node:crypto";
+import { sql } from "drizzle-orm";
+import { db } from "./db";
 import { config } from "./config";
 import { generalRateLimit } from "./middleware/rate-limit";
 import { authRoutes } from "./routes/auth";
@@ -68,6 +71,45 @@ const app = new Elysia()
     return { error: msg || "Internal server error", requestId };
   });
 
+// ── Swagger /docs gate ──
+// In production, the docs are auth-protected by a static bearer token. The
+// schema is still useful for ops and the frontend codegen — but it's not for
+// anonymous reconnaissance.
+function isDocsPath(pathname: string): boolean {
+  return pathname === "/openapi.json" || pathname === "/docs" || pathname.startsWith("/docs/");
+}
+
+function bearerTokensMatch(presented: string, expected: string): boolean {
+  // Length check up front avoids leaking length via timing — timingSafeEqual
+  // throws if the buffers differ in length.
+  const a = Buffer.from(presented);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
+}
+
+app.onBeforeHandle(({ request, set, headers }) => {
+  const pathname = new URL(request.url).pathname;
+  if (!isDocsPath(pathname)) return;
+  if (!config.isProduction) return;
+
+  if (!config.docsAuthToken) {
+    set.status = 503;
+    return {
+      error: "Swagger docs are disabled. Set DOCS_AUTH_TOKEN to enable.",
+    };
+  }
+
+  const auth = headers.authorization ?? "";
+  const presented = auth.startsWith("Bearer ") ? auth.slice(7) : "";
+
+  if (!presented || !bearerTokensMatch(presented, config.docsAuthToken)) {
+    set.status = 401;
+    set.headers["www-authenticate"] = 'Bearer realm="centsible-docs"';
+    return { error: "Unauthorized" };
+  }
+});
+
 app.use(
   swagger({
     path: "/docs",
@@ -111,7 +153,27 @@ app
       exp: "7d",
     })
   )
-  .get("/health", () => ({ status: "ok", timestamp: new Date().toISOString() }))
+  .get("/health", async ({ set }) => {
+    // Verify the DB pool can actually serve a query — Quadlet's HealthCmd
+    // hits this endpoint, so a stale or stuck DB connection trips the
+    // restart loop instead of looking healthy forever.
+    try {
+      await db.execute(sql`SELECT 1`);
+      return {
+        status: "ok",
+        db: "ok",
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      set.status = 503;
+      return {
+        status: "error",
+        db: "unreachable",
+        message: error instanceof Error ? error.message : String(error),
+        timestamp: new Date().toISOString(),
+      };
+    }
+  })
   .use(authRoutes)
   .use(categoryRoutes)
   .use(transactionRoutes)

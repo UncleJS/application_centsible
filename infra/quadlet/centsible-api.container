@@ -18,13 +18,24 @@ AutoUpdate=local
 # Run in the centsible pod
 Pod=centsible.pod
 
-# Environment variables
-EnvironmentFile=%h/.config/containers/systemd/.env.centsible
+# Environment variables — repo-local .env is the single source of truth.
+# deploy.sh substitutes __REPO_ENV__ with the absolute path to <repo>/.env at
+# install time. Edit <repo>/.env directly to change values.
+EnvironmentFile=__REPO_ENV__
 Environment=NODE_ENV=production
 Environment=API_PORT=10301
 Environment=DB_HOST=localhost
 Environment=DB_PORT=3306
 Environment=WEB_URL=http://localhost:10300
+
+# Healthcheck — /health does SELECT 1 against the DB pool and returns 503 if
+# unreachable, so a stuck pool will trip the restart loop instead of looking
+# healthy forever. wget is preinstalled in oven/bun:*-alpine.
+HealthCmd=/bin/sh -c "wget -q -O /dev/null http://localhost:10301/health || exit 1"
+HealthInterval=15s
+HealthTimeout=5s
+HealthRetries=5
+HealthStartPeriod=30s
 
 [Service]
 Restart=always

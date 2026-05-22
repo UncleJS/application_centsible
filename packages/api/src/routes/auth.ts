@@ -103,11 +103,12 @@ export const authRoutes = new Elysia({ prefix: "/auth", detail: { tags: ["Auth"]
         return { error: supportedCurrencyError("defaultCurrency") };
       }
 
-      // Check if email already exists
+      // Check if an *active* user owns the email. Archived users free up their
+      // email — the DB unique index is scoped to active rows for the same reason.
       const [existing] = await db
         .select({ id: schema.users.id })
         .from(schema.users)
-        .where(eq(schema.users.email, email))
+        .where(and(eq(schema.users.email, email), isNull(schema.users.archivedAt)))
         .limit(1);
 
       if (existing) {
