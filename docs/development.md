@@ -14,6 +14,8 @@ This document covers everything you need to get Centsible running locally, under
 - [Environment Variables](#environment-variables)
 - [Running Locally](#running-locally)
 - [Available Scripts](#available-scripts)
+- [Testing](#testing)
+- [Inspecting the local Quadlet stack](#inspecting-the-local-quadlet-stack)
 - [Database Workflow](#database-workflow)
 - [Architecture Overview](#architecture-overview)
 - [Auth & Session Model](#auth--session-model)
@@ -163,6 +165,14 @@ cp .env.example .env
 | `JWT_REFRESH_SECRET` | *(dev default, prints warning)* | Secret for signing refresh tokens (7 day TTL). **Must differ from `JWT_SECRET`.** |
 | `WEB_URL` | `http://localhost:3000` | CORS allowed origin — must exactly match the web app origin (scheme + host + port) |
 | `VITE_API_URL` | `http://localhost:4000` | API base URL baked into the Vite bundle at build time |
+| `DOCS_AUTH_TOKEN` | *(unset)* | Static bearer token that unlocks `/docs`, `/docs/*`, and `/openapi.json` when `NODE_ENV=production`. Leave empty in dev to keep Swagger open. If unset in production the API returns `503` for those paths. |
+| `TRUST_PROXY_HEADERS` | `false` | Set to `true` **only** behind a trusted reverse proxy that fills `X-Forwarded-For` / `X-Real-IP`. Misconfiguring this lets clients spoof their IP for rate-limit purposes (`packages/api/src/middleware/rate-limit.ts`). |
+| `RATE_LIMIT_WINDOW_MS` | `60000` | Width of the sliding window used by the in-memory rate limiter (ms). |
+| `AUTH_RATE_LIMIT_MAX` | `10` | Max requests per IP per window for `POST /auth/*`. |
+| `GENERAL_RATE_LIMIT_MAX` | `100` | Max requests per IP per window for every other route. |
+| `EXCHANGE_RATE_API_BASE` | Frankfurter | Upstream exchange-rate provider base URL. Defaults to `https://api.frankfurter.app` from `packages/shared/src/constants.ts`. Overriding to an unreachable host is exactly how the E2E suite forces the cached-rate fallback path. |
+
+**MariaDB bootstrap (Quadlet + E2E):** the official MariaDB image consumes `MARIADB_ROOT_PASSWORD`, `MARIADB_DATABASE`, `MARIADB_USER`, and `MARIADB_PASSWORD` on first boot. They mirror the `DB_*` values above so the API can connect. The Playwright suite's DB bootstrap (`packages/api/src/db/test-setup.ts`) uses the same root password to create and grant access on the `centsible_test` schema — keep them in sync.
 
 > **Security note:** In production `config.ts` throws a hard error if `JWT_SECRET`, `JWT_REFRESH_SECRET`, `DB_HOST`, `DB_USER`, `DB_PASSWORD`, or `DB_NAME` are missing. Dev defaults are intentionally weak and print a `⚠` console warning.
 
@@ -258,7 +268,9 @@ All scripts run from the **project root**:
 | `bun run db:studio` | Open Drizzle Studio in the browser |
 | `bun run typecheck` | Run `tsc --noEmit` in all packages |
 | `bun run lint` | Run ESLint in all packages |
-| `bun run verify:image` | Required pre-image-build checks: workspace typecheck + web lint |
+| `bun run test` | Run the `@centsible/api` unit suites (`bun test`) — currency conversion, forecast math, subscription renewals |
+| `bun run test:e2e` | Run the `@centsible/web` Playwright suite against a real API + Vite preview + `centsible_test` MariaDB schema |
+| `bun run verify:image` | Required pre-image-build checks: workspace typecheck + API unit tests (`bun test`) + workspace lint + web E2E (`test:e2e`) |
 
 Package-specific scripts (run with `bun run --filter @centsible/api <script>`):
 
@@ -268,7 +280,47 @@ Package-specific scripts (run with `bun run --filter @centsible/api <script>`):
 | `start` | api | Run the production bundle (`dist/index.js`) |
 | `preview` | web | Serve the built Vite bundle locally (parity check) |
 
-### Inspecting the local Quadlet stack
+[↑ Go to TOC](#table-of-contents)
+
+---
+
+## Testing
+
+The repo ships two test layers; `verify:image` runs both.
+
+### API unit tests (`bun test`)
+
+```bash
+bun run test                                              # workspace shortcut
+podman exec centsible-dev bun run test                    # from the dev container
+```
+
+Pure unit suites live under `packages/api/src/lib/__tests__/` and exercise the deterministic finance math — currency conversion + warning shape, recurring-income occurrence counting, subscription renewal date stepping. They do **not** touch the database, so they're safe to run in parallel with a live dev stack.
+
+### Web E2E suite (Playwright)
+
+```bash
+bun run test:e2e                                          # workspace shortcut
+podman exec centsible-dev bun run --filter @centsible/web test:e2e
+```
+
+Specs live in `packages/web/tests/e2e/`. The harness in `packages/web/playwright.config.e2e.ts` spins up:
+
+1. A real Elysia API process bound to a dedicated `centsible_test` MariaDB schema (auto-created by `packages/api/src/db/test-setup.ts` using the `MARIADB_ROOT_PASSWORD` from `.env`).
+2. A Vite preview build of the web app pointed at that API.
+
+The suite covers auth flows, every CRUD screen, multi-currency, CSV export, pagination, empty states, and validation. To keep the run hermetic and offline, set `EXCHANGE_RATE_API_BASE` to an unreachable host in `.env` (see the env table above) — the API then falls back to its cached-rate path, which the specs assert against.
+
+### Prerequisites
+
+- `.env` populated with `MARIADB_*` (used by both the dev stack and the E2E bootstrap).
+- The MariaDB container running (`./infra/deploy.sh start` or a local install). The E2E suite does not start its own DB.
+
+[↑ Go to TOC](#table-of-contents)
+
+---
+
+## Inspecting the local Quadlet stack
 
 When using the repo-configured Podman + systemd deployment stack, inspect it with these exact commands:
 

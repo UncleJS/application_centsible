@@ -15,6 +15,7 @@ Production deployment uses **rootless Podman** with **systemd Quadlet** units. A
 - [Building Container Images](#building-container-images)
 - [Installing Quadlet Units](#installing-quadlet-units)
 - [Environment Secrets](#environment-secrets)
+- [Protecting Swagger in Production](#protecting-swagger-in-production)
 - [Starting & Stopping Services](#starting--stopping-services)
 - [Verifying the Deployment](#verifying-the-deployment)
 - [Logs](#logs)
@@ -34,7 +35,7 @@ Host (rootless user session)
 └── systemd user session
       │
       ├── centsible-pod.service        (Podman pod — shared network namespace)
-      │     ├── centsible-mariadb      MariaDB 11.7  — port 3306 (pod-internal only)
+      │     ├── centsible-mariadb      MariaDB 11.8  — port 3306 (pod-internal only)
       │     ├── centsible-api          Bun/Elysia    — port 10301 (exposed)
       │     ├── centsible-web          Caddy + SPA   — port 10300 (exposed)
       │     └── centsible-dev          Utility dev   — no exposed ports
@@ -63,7 +64,7 @@ The `centsible-dev` container runs **inside the same pod** but is **not part of 
 - A Linux host with:
   - `podman` >= 4.x installed for the deployment user
   - `systemd` user session enabled (`loginctl enable-linger <user>`)
-  - Internet access (to pull `docker.io/library/mariadb:11.7` and build dependencies)
+  - Internet access (to pull `docker.io/library/mariadb:11.8`, `docker.io/oven/bun:1.3.14-alpine`, `docker.io/caddy:2-alpine`, and build dependencies)
 - Bun installed on the host (for building images from source; or pre-built images transferred in)
 - The project source cloned to the host
 
@@ -149,13 +150,14 @@ podman build \
 ./infra/deploy.sh install
 ```
 
-This copies the five files from `infra/quadlet/` to `~/.config/containers/systemd/`:
+This copies the six files from `infra/quadlet/` to `~/.config/containers/systemd/`:
 
 ```
 ~/.config/containers/systemd/
 ├── centsible.pod
 ├── centsible-api.container
 ├── centsible-db.volume
+├── centsible-dev.container
 ├── centsible-web.container
 └── centsible-mariadb.container
 ```
@@ -214,6 +216,38 @@ openssl rand -base64 48   # run twice for two different secrets
 ```
 
 > The file is loaded by the `centsible-api.container`, `centsible-web.container`, and `centsible-mariadb.container` units via `EnvironmentFile=<absolute path to repo>/.env`. `deploy.sh install` substitutes the placeholder `__REPO_ENV__` in the committed Quadlet files with the absolute path before copying them into `~/.config/containers/systemd/`.
+
+[↑ Go to TOC](#table-of-contents)
+
+---
+
+## Protecting Swagger in Production
+
+When `NODE_ENV=production`, the API gates `/docs`, `/docs/*`, and `/openapi.json` behind a static bearer token. This is enforced in `packages/api/src/index.ts` before the Swagger plugin sees the request.
+
+| `DOCS_AUTH_TOKEN` state | Behaviour for `/docs`, `/docs/*`, `/openapi.json` |
+|---|---|
+| Set (recommended) | Requires `Authorization: Bearer <DOCS_AUTH_TOKEN>`. Missing or wrong token → `401 Unauthorized` with `WWW-Authenticate: Bearer realm="centsible-docs"`. |
+| Empty / unset | `503 Service Unavailable` — Swagger is effectively disabled. |
+
+Set the token in `.env` next to your other secrets, then restart the API:
+
+```bash
+echo "DOCS_AUTH_TOKEN=$(openssl rand -hex 32)" >> .env
+systemctl --user restart centsible-api.service
+```
+
+Verify the gate:
+
+```bash
+# Without a token — expect 401
+curl -i http://localhost:10301/openapi.json
+
+# With a token — expect 200 and the OpenAPI JSON
+curl -i -H "Authorization: Bearer $DOCS_AUTH_TOKEN" http://localhost:10301/docs/json
+```
+
+In development (`NODE_ENV=development`) the gate is bypassed entirely and Swagger UI is reachable at `http://localhost:4000/docs` without a token. Token comparison uses `crypto.timingSafeEqual`, so length-based timing attacks on the token are not viable.
 
 [↑ Go to TOC](#table-of-contents)
 
@@ -314,7 +348,8 @@ podman port centsible-api
 
 # Health check the API
 curl http://localhost:10301/health
-# Expected: {"status":"ok","timestamp":"..."}
+# Expected: {"status":"ok","db":"ok","timestamp":"..."}
+# A 503 with {"status":"error","db":"unreachable",...} means MariaDB is not responding.
 
 # Check the web app is responding
 curl -I http://localhost:10300
@@ -558,7 +593,7 @@ The API rate-limiter uses in-memory state keyed by IP. Limits are:
 - Auth endpoints: 10 requests / minute / IP
 - All other endpoints: 100 requests / minute / IP
 
-If you are behind a reverse proxy, ensure it sets `X-Forwarded-For` or `X-Real-IP` so the limiter sees the real client IP instead of `127.0.0.1`.
+If you are behind a reverse proxy, ensure it sets `X-Forwarded-For` or `X-Real-IP` so the limiter sees the real client IP instead of `127.0.0.1` — **and** set `TRUST_PROXY_HEADERS=true` in `.env` so the API honours those headers. Leave `TRUST_PROXY_HEADERS=false` when the API is exposed directly: enabling it without a trusted proxy in front lets any client spoof their IP and bypass the limiter. The per-IP windows can be tuned with `RATE_LIMIT_WINDOW_MS`, `AUTH_RATE_LIMIT_MAX`, and `GENERAL_RATE_LIMIT_MAX`.
 
 [↑ Go to TOC](#table-of-contents)
 

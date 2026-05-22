@@ -8,11 +8,12 @@
 Base URL (development): `http://localhost:4000`  
 Base URL (production): `http://localhost:10301`
 
-Interactive Swagger UI is available at `/docs` in any non-production environment. The raw OpenAPI spec is at `/docs/json` (redirected from `/openapi.json`).
+Interactive Swagger UI is available at `/docs`. In `NODE_ENV=development` it is open; in production it is gated behind `Authorization: Bearer <DOCS_AUTH_TOKEN>` — see [Production Swagger Access](#production-swagger-access). The raw OpenAPI spec is at `/docs/json` (redirected from `/openapi.json`).
 
 ## Table of Contents
 
 - [Authentication Model](#authentication-model)
+- [Production Swagger Access](#production-swagger-access)
 - [Global Conventions](#global-conventions)
 - [Rate Limiting](#rate-limiting)
 - [Health Check](#health-check)
@@ -72,6 +73,29 @@ When any request returns `401`, send a `POST /auth/refresh` (no body required fo
 
 ---
 
+## Production Swagger Access
+
+Application auth (cookies + CSRF / bearer JWT) protects every business endpoint. The Swagger UI and the raw OpenAPI spec are a separate concern: in development they are open; in production they are gated by a **static bearer token** read from the `DOCS_AUTH_TOKEN` environment variable.
+
+The gate covers `/docs`, every `/docs/*` path, and `/openapi.json` (which 302-redirects to `/docs/json`).
+
+| `NODE_ENV` | `DOCS_AUTH_TOKEN` | Behaviour |
+|---|---|---|
+| `development` | (any) | Open — no token required |
+| `production` | set | Requires `Authorization: Bearer <DOCS_AUTH_TOKEN>`. Wrong/missing → `401 Unauthorized` with `WWW-Authenticate: Bearer realm="centsible-docs"` |
+| `production` | unset / empty | `503 Service Unavailable` — Swagger is effectively disabled |
+
+Token comparison uses `crypto.timingSafeEqual` (length-checked up front), so timing-based length probes are not viable.
+
+```bash
+# Production — fetch the spec with the docs token
+curl -i -H "Authorization: Bearer $DOCS_AUTH_TOKEN" https://api.example.com/docs/json
+```
+
+[↑ Go to TOC](#table-of-contents)
+
+---
+
 ## Global Conventions
 
 ### Success responses
@@ -99,8 +123,13 @@ When any request returns `401`, send a `POST /auth/refresh` (no body required fo
 ### Error responses
 
 ```jsonc
-{ "error": "Human-readable error message" }
+{
+  "error": "Human-readable error message",
+  "requestId": "550e8400-e29b-41d4-a716-446655440000"
+}
 ```
+
+`requestId` is a UUID v4 minted per request and echoed back in the `x-request-id` response header on **every** response (success and error). Quote it when reporting a bug — server logs are correlated by the same ID.
 
 ### Field types
 
@@ -108,7 +137,7 @@ When any request returns `401`, send a `POST /auth/refresh` (no body required fo
 |---|---|---|
 | Amounts | Decimal string, up to 2 dp | `"1234.56"` |
 | Dates | ISO 8601 date string | `"2026-03-15"` |
-| Timestamps | ISO 8601 datetime | `"2026-03-15T10:30:00.000Z"` |
+| Timestamps | ISO 8601 datetime | `"2026-05-22T08:30:00.000Z"` |
 | IDs | Integer | `42` |
 | Currency codes | ISO 4217, 3 uppercase chars | `"GBP"` |
 
@@ -152,13 +181,24 @@ The limiter reads `X-Forwarded-For` (first value) then `X-Real-IP` to identify t
 
 ### `GET /health`
 
-Public. No authentication required.
+Public. No authentication required. The handler verifies the MariaDB pool is reachable via `SELECT 1` before returning success — used by Quadlet's `HealthCmd` so a stuck DB connection trips the restart loop instead of looking healthy forever.
 
 **Response `200`**
 ```json
 {
   "status": "ok",
-  "timestamp": "2026-03-15T10:30:00.000Z"
+  "db": "ok",
+  "timestamp": "2026-05-22T08:30:00.000Z"
+}
+```
+
+**Response `503`** (DB pool unreachable)
+```json
+{
+  "status": "error",
+  "db": "unreachable",
+  "message": "connect ECONNREFUSED 127.0.0.1:3306",
+  "timestamp": "2026-05-22T08:30:00.000Z"
 }
 ```
 
@@ -1111,6 +1151,7 @@ Monthly income/expense summary with per-category breakdown and budget utilisatio
     "totalIncome": "3500.00",
     "totalExpenses": "1823.45",
     "netAmount": "1676.55",
+    "currency": "GBP",
     "byCategory": [
       {
         "categoryId": 3,
@@ -1123,12 +1164,20 @@ Monthly income/expense summary with per-category breakdown and budget utilisatio
         "percentUsed": 43,
         "transactionCount": 6
       }
+    ],
+    "conversionWarnings": [
+      { "from": "USD", "to": "GBP", "reason": "no-rate" }
     ]
   }
 }
 ```
 
-`budgetAmount` is `null` if no budget is set for that category/month. `percentUsed` is `null` when `budgetAmount` is `null`.
+| Field | Notes |
+|---|---|
+| `currency` | The user's `defaultCurrency`. Every amount in `totalIncome`, `totalExpenses`, `netAmount`, `byCategory[].totalAmount`, and `byCategory[].budgetAmount` is already converted into this currency using the latest cached rate (`packages/api/src/lib/currency.ts`). |
+| `byCategory[].budgetAmount` | `null` if no budget is set for that category/month. |
+| `byCategory[].percentUsed` | `null` when `budgetAmount` is `null`. |
+| `conversionWarnings` | One entry per `(from, to, reason)` tuple for which a conversion could not be performed (e.g. the rate for that currency pair is not yet cached). Empty array when every record is already in the default currency. |
 
 ---
 
@@ -1166,6 +1215,14 @@ Forward-looking financial forecast using current budgets (expense and income), s
           "sourceId": 3
         },
         {
+          "name": "Weekly retainer (5×)",
+          "amount": "2000.00",
+          "currency": "GBP",
+          "date": "2026-04-01",
+          "type": "recurring-income",
+          "sourceId": 7
+        },
+        {
           "name": "Income: Freelance",
           "amount": "500.00",
           "currency": "GBP",
@@ -1199,9 +1256,13 @@ Forward-looking financial forecast using current budgets (expense and income), s
         }
       ]
     }
-  ]
+  ],
+  "currency": "GBP",
+  "conversionWarnings": []
 }
 ```
+
+Note: `currency` and `conversionWarnings` are returned at the **top level** of the response (alongside `data`), not inside it — same semantics as `/reports/summary`. `currency` is the user's `defaultCurrency` and every month-total field (`projectedExpenses`, `projectedIncome`, `subscriptionCosts`, `recurringIncomeSources`, `savingsContributions`, `totalProjected`) is already converted into it. Individual `items[].amount` values stay in the **source record's** currency for display purposes; do not sum them client-side without re-converting.
 
 #### Response fields
 
@@ -1236,8 +1297,9 @@ Forward-looking financial forecast using current budgets (expense and income), s
 #### Recurring income firing logic
 
 - `autoRenew: false` → excluded entirely.
-- `billingCycle` with `cycleMonths ≤ 1` (weekly, fortnightly, monthly) → fires every forecast month.
-- `billingCycle` with `cycleMonths > 1` (quarterly = 3, yearly = 12) → fires when `(year × 12 + month − 1) % round(cycleMonths) === 0`.
+- Weekly and fortnightly cycles → fire **multiple times per month** depending on the calendar (4–5× weekly, 2–3× fortnightly). The month's total contribution is `amountPerOccurrence × occurrences`. The forecast item's `name` is suffixed with `(N×)` whenever `N > 1` (e.g. `"Weekly retainer (5×)"`), and `items[].amount` is the **monthly total**, not the per-occurrence amount. `items[].currency` is the source's own currency.
+- Monthly cycle → fires once per forecast month at the full cycle amount.
+- Quarterly and yearly cycles → fire only in the months they fall due, when `(year × 12 + month − 1) % round(cycleMonths) === 0`.
 
 #### Savings contribution calculation
 
@@ -1311,7 +1373,12 @@ Date,Type,Category,Description,Amount,Currency
 2026-03-10,income,Salary,March salary,3500.00,GBP
 ```
 
-CSV cells starting with `=`, `+`, `-`, `@`, tab, or carriage return are prefixed with a single quote to prevent formula injection when opened in spreadsheet applications.
+CSV cells are written in two defensive layers:
+
+1. **Formula-injection guard** — any cell starting with `=`, `+`, `-`, `@`, a tab, or a CR is prefixed with a single quote so spreadsheet apps don't interpret it as a formula.
+2. **RFC 4180 quoting** — any cell containing `"`, `,`, CR, or LF is wrapped in double quotes with embedded quotes doubled.
+
+Line endings are `\r\n` (CRLF), matching RFC 4180.
 
 **Filename:** `centsible-YYYY-MM.csv`
 

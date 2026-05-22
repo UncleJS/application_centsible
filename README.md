@@ -31,6 +31,7 @@ A self-hosted personal finance tracker. Track income and expenses, set monthly b
 - **Reports & forecasting** — Monthly summaries, category breakdowns, historical trend charts, and up to 12-month expense forecasts
 - **CSV export** — Download any month's transactions as a spreadsheet-safe CSV
 - **Secure sessions** — HttpOnly cookie-based auth (JWT access + refresh tokens) with CSRF protection
+- **End-to-end tested** — Playwright suite runs every screen against a real Elysia API + Vite preview build + a dedicated `centsible_test` MariaDB schema
 
 [↑ Go to TOC](#table-of-contents)
 
@@ -44,6 +45,7 @@ A self-hosted personal finance tracker. Track income and expenses, set monthly b
 | Backend | Bun + Elysia, `@elysiajs/jwt`, `@elysiajs/swagger` |
 | Database | MariaDB 11 + Drizzle ORM |
 | Shared | TypeScript types + Zod validation (`@centsible/shared`) |
+| Testing | Bun test (API unit suites) + Playwright (web E2E against the full stack) |
 | Deployment | Rootless Podman + systemd Quadlet |
 
 [↑ Go to TOC](#table-of-contents)

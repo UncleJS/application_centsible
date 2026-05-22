@@ -148,7 +148,7 @@ Colour thresholds:
 | Amber (warning) | 75–89% used |
 | Red | 90% or more used |
 
-> **Currency note:** All dashboard figures are displayed in your **default currency**. Amounts stored in other currencies are summed using their raw values without conversion — see [Multi-Currency Support](#multi-currency-support).
+> **Currency note:** Dashboard totals (Total Income, Total Expenses, Net Savings, Budget Usage) are returned by the API already converted into your **default currency** using cached/live exchange rates. Individual list items (transactions, subscriptions, savings goals) keep their original currency. If a rate is missing or stale, the API attaches a `conversionWarnings` array to the response so the UI can flag the affected pair. See [Multi-Currency Support](#multi-currency-support).
 
 ### Budget Progress
 
@@ -586,7 +586,7 @@ Click **Export CSV** to download all transactions for the selected month as a `.
 
 Columns: `Date, Type, Category, Description, Amount, Currency`
 
-> **Security note:** Cells starting with `=`, `+`, `-`, `@`, a tab, or a carriage return are prefixed with a single quote to prevent formula injection when opened in a spreadsheet application.
+> **Security note:** CSV cells are written defensively in two layers. **(1)** Cells starting with `=`, `+`, `-`, `@`, a tab, or a carriage return are prefixed with a single quote to prevent formula injection in spreadsheets. **(2)** Any cell containing `"`, `,`, CR, or LF is then RFC 4180-quoted — wrapped in double quotes with embedded quotes doubled. The file uses Windows-style `\r\n` line endings so spreadsheet apps on any OS parse it correctly.
 
 [↑ Go to TOC](#table-of-contents)
 
@@ -707,10 +707,13 @@ If you have no income budgets set for the current month, only recurring income c
 
 Each active recurring income source with **auto-renew enabled** is evaluated month by month:
 
-- **Sub-monthly cycles (weekly, fortnightly) and monthly:** fire every month — the full cycle amount is added to that month's income.
+- **Weekly and fortnightly cycles:** can fire **multiple times within a single forecast month** (typically 4–5× for weekly, 2–3× for fortnightly, depending on the calendar). The month's contribution is `amountPerOccurrence × occurrences`, and the forecast line item picks up an `(N×)` suffix in its name whenever `N > 1` (e.g. "Weekly retainer (5×)"). The displayed `amount` on that line is the **monthly total**, not the per-occurrence amount.
+- **Monthly cycle:** fires exactly once per month — the full cycle amount is added to that month's income.
 - **Supra-monthly cycles (quarterly, yearly):** fire only in the specific months they fall due. The algorithm calculates which months a source fires by checking whether the absolute month index (year × 12 + month) is divisible by the cycle length.
 
-**Example:** A quarterly income source of £3,000 will appear in every third month of the forecast at its full £3,000 value — not £1,000 spread across all three months. This reflects reality: the money arrives in a lump sum.
+**Example 1 — quarterly:** A quarterly income source of £3,000 will appear in every third month of the forecast at its full £3,000 value — not £1,000 spread across all three months. This reflects reality: the money arrives in a lump sum.
+
+**Example 2 — weekly in a 5-week month:** A weekly retainer of £400 in a forecast month containing 5 weekly hit dates contributes £2,000 to that month's income. The line item appears as "Weekly retainer (5×)" — £2,000. A neighbouring four-week month shows "Weekly retainer (4×)" — £1,600. The displayed `amount` is always the monthly total, not the per-occurrence amount.
 
 ### Savings Contributions in the Forecast
 
@@ -777,12 +780,13 @@ AUD, BGN, BRL, CAD, CHF, CNY, CZK, DKK, EUR, GBP, HKD, HRK, HUF, IDR, INR, ISK, 
 
 | Feature | Conversion behaviour |
 |---|---|
-| Dashboard summary cards | Raw amounts summed without conversion |
-| Budget summary — Monthly Subscriptions | Subscription amounts converted to your default currency using live rates |
-| Budget summary — Projected Balance | Subscription component converted; budget and savings components use raw amounts |
-| Forecast | All amounts displayed in the subscription's or goal's own currency (no conversion) |
+| Dashboard summary cards | Totals are returned in your default currency. Per-currency transaction amounts are converted server-side via `/reports/summary` before they are summed. |
+| Reports → Monthly Summary | Same as the dashboard — `totalIncome`, `totalExpenses`, `netAmount`, per-category totals, and budget amounts are all in your default currency. |
+| Budget summary — Monthly Subscriptions / Projected Balance | Subscription amounts are converted to your default currency using live rates; the card shows "—" while rates are still loading. |
+| Forecast — month totals (`projectedIncome`, `projectedExpenses`, `subscriptionCosts`, `recurringIncomeSources`, `savingsContributions`, `totalProjected`) | Returned in your default currency. |
+| Forecast — individual line items | Each item keeps its **own** currency for display (so a USD subscription shows as USD in the breakdown), but the per-month totals above already roll them into your default currency. |
 
-> **Important:** Dashboard summary figures (Total Income, Total Expenses, Net Savings, Budget Usage) are summed using raw amounts regardless of currency. If you use multiple currencies, interpret these totals accordingly.
+> **Conversion warnings:** When an amount is in a currency that has no cached rate (e.g. the upstream rate API has been unavailable since you added that currency), the API returns a `conversionWarnings: [{ from, to, reason }]` array alongside the data. The UI surfaces these so you know the headline total may understate the actual figure. If every record is already in your default currency the array stays empty.
 
 [↑ Go to TOC](#table-of-contents)
 

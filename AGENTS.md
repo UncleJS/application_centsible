@@ -65,9 +65,11 @@ Before any `podman build` for this repo, always run these checks in the dev cont
 podman exec centsible-dev bun run verify:image
 ```
 
-This currently runs:
+This currently runs, in order:
 
-- workspace type checks
-- web lint
+1. workspace type checks (`tsc --noEmit` across `@centsible/api`, `@centsible/web`, `@centsible/shared`)
+2. `@centsible/api` unit tests (`bun test` — currency conversion, forecast math, subscription renewals)
+3. workspace lint
+4. Playwright end-to-end suite (`@centsible/web test:e2e`) against the real Elysia API + Vite preview build + a dedicated `centsible_test` MariaDB schema
 
-If verification fails, stop and fix the issues before building the image.
+If verification fails at any stage, stop and fix the issues before building the image.
