@@ -2,7 +2,8 @@
 
 [![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey?style=flat)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
 [![Bun](https://img.shields.io/badge/Bun-%3E%3D1.3-f9f1e1?style=flat&logo=bun)](https://bun.sh)
-[![Next.js](https://img.shields.io/badge/Next.js-16-black?style=flat&logo=next.js)](https://nextjs.org)
+[![React](https://img.shields.io/badge/React-19-61dafb?style=flat&logo=react)](https://react.dev)
+[![Vite](https://img.shields.io/badge/Vite-7-646cff?style=flat&logo=vite)](https://vite.dev)
 [![MariaDB](https://img.shields.io/badge/MariaDB-11-003545?style=flat&logo=mariadb)](https://mariadb.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?style=flat&logo=typescript)](https://www.typescriptlang.org)
 
@@ -39,7 +40,7 @@ A self-hosted personal finance tracker. Track income and expenses, set monthly b
 
 | Layer | Technology |
 |---|---|
-| Frontend | Next.js 16 + React 19, Tailwind CSS v4, shadcn/ui, Zustand |
+| Frontend | React 19 + Vite 7 + React Router 7, Tailwind CSS v4, shadcn/ui, Zustand |
 | Backend | Bun + Elysia, `@elysiajs/jwt`, `@elysiajs/swagger` |
 | Database | MariaDB 11 + Drizzle ORM |
 | Shared | TypeScript types + Zod validation (`@centsible/shared`) |
@@ -125,7 +126,7 @@ See [docs/deployment.md](docs/deployment.md) for the full uninstall order and vo
 application_centsible/
 ├── packages/
 │   ├── api/          # Bun + Elysia backend (port 4000 / 10301)
-│   ├── web/          # Next.js frontend (port 3000 / 10300)
+│   ├── web/          # React + Vite frontend (port 3000 / 10300)
 │   └── shared/       # TypeScript types + Zod schemas shared across both
 ├── infra/
 │   ├── Containerfile.api       # Multi-stage Podman build for the API

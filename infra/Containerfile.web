@@ -1,5 +1,6 @@
-# ── Centsible Web (Next.js Standalone) ────────────────────────
-# Multi-stage build: Bun for install/build, minimal runtime.
+# ── Centsible Web (Vite SPA, served by Caddy) ────────────────
+# Multi-stage build: Bun installs + builds the static SPA,
+# Caddy serves /srv at :10300 with SPA fallback.
 # Build context: monorepo root (../../)
 # Usage: podman build -t centsible-web:latest -f infra/Containerfile.web .
 
@@ -36,35 +37,24 @@ COPY packages/shared/ packages/shared/
 COPY packages/web/ packages/web/
 
 # Re-link workspace dependencies after source copy so package binaries
-# like `next` are available during the build step.
+# like `vite` are available during the build step.
 RUN bun install --frozen-lockfile
 
-# Build-time env: NEXT_PUBLIC_* is baked into the client JS bundle at build time.
+# Build-time env: VITE_* is baked into the client JS bundle at build time.
 # Always pass the correct value via --build-arg when building for production.
 # Default here matches the pod-internal port used by centsible-api.
-ARG NEXT_PUBLIC_API_URL=http://localhost:10301
-ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ARG VITE_API_URL=http://localhost:10301
+ENV VITE_API_URL=$VITE_API_URL
 
 RUN cd packages/web && bun run build
 
-# ── Stage 3: Production runtime ──────────────────────────────
-FROM docker.io/oven/bun:1.3.8-alpine AS runtime
+# ── Stage 3: Production runtime (Caddy static server) ────────
+FROM docker.io/caddy:2-alpine AS runtime
 
-WORKDIR /app
+# Static SPA assets — Caddy's default Caddyfile serves /srv with SPA fallback.
+COPY --from=build /app/packages/web/dist /srv
+COPY infra/web/Caddyfile /etc/caddy/Caddyfile
 
-# Non-root user
-RUN addgroup -g 1001 -S centsible && \
-    adduser -u 1001 -S centsible -G centsible
+EXPOSE 10300
 
-# Next.js standalone output includes everything needed
-COPY --from=build --chown=centsible:centsible /app/packages/web/.next/standalone ./
-COPY --from=build --chown=centsible:centsible /app/packages/web/.next/static ./packages/web/.next/static
-COPY --from=build --chown=centsible:centsible /app/packages/web/public ./packages/web/public
-
-ENV NODE_ENV=production
-ENV HOSTNAME=0.0.0.0
-EXPOSE 3000
-
-USER centsible
-
-CMD ["bun", "run", "packages/web/server.js"]
+# Caddy's default ENTRYPOINT runs the server with /etc/caddy/Caddyfile.

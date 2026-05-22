@@ -32,7 +32,7 @@ This document covers everything you need to get Centsible running locally, under
 |---|---|---|
 | [Bun](https://bun.sh) | 1.3 | Package manager, API runtime, build tool |
 | [MariaDB](https://mariadb.org) | 11 | Database (MySQL-compatible) |
-| Node.js | 20 *(optional)* | Only needed if you encounter Next.js build issues with Bun |
+| Node.js | 20 *(optional)* | Not used by this repo; Bun handles install, dev server, and production build |
 
 > **Tip:** On macOS/Linux you can run MariaDB with `brew install mariadb && brew services start mariadb` or via a rootless Podman container:
 > ```bash
@@ -81,23 +81,28 @@ application_centsible/
 │   │   ├── drizzle/                  # Auto-generated SQL migrations (do not hand-edit)
 │   │   └── drizzle.config.ts         # Drizzle Kit config
 │   │
-│   ├── web/                  # @centsible/web  — Next.js App Router frontend
+│   ├── web/                  # @centsible/web  — React + Vite SPA
+│   │   ├── index.html             # Vite entry HTML
+│   │   ├── vite.config.ts         # Vite + React + Tailwind v4 + path alias
 │   │   └── src/
-│   │       ├── app/              # Next.js pages (App Router)
-│   │       │   ├── dashboard/page.tsx      # Overview: income, expenses, net savings, budget usage
-│   │       │   ├── transactions/page.tsx   # Transaction list + create/edit/delete
-│   │       │   ├── budgets/page.tsx        # Monthly budgets + Projected Balance
-│   │       │   ├── savings/page.tsx        # Savings goals + contributions
-│   │       │   ├── subscriptions/page.tsx  # Subscription tracker
-│   │       │   ├── recurring-income/page.tsx # Recurring income sources
-│   │       │   ├── forecast/page.tsx       # Forward-looking monthly forecast
-│   │       │   ├── reports/page.tsx        # Monthly trend charts + CSV export
-│   │       │   ├── settings/page.tsx       # Profile, currency, categories
-│   │       │   ├── login/page.tsx
-│   │       │   └── register/page.tsx
+│   │       ├── main.tsx            # Bootstraps RouterProvider, loads fonts + globals.css
+│   │       ├── router.tsx          # React Router 7 route table (all routes + legacy redirects)
+│   │       ├── app/                # globals.css + favicon source
+│   │       ├── pages/              # One file per route
+│   │       │   ├── dashboard.tsx           # Overview: income, expenses, net savings, budget usage
+│   │       │   ├── transactions.tsx        # Transaction list + create/edit/delete
+│   │       │   ├── budgets.tsx             # Monthly budgets + Projected Balance
+│   │       │   ├── savings.tsx             # Savings goals + contributions
+│   │       │   ├── subscriptions.tsx       # Subscription tracker
+│   │       │   ├── recurring-income.tsx    # Recurring income sources
+│   │       │   ├── forecast.tsx            # Forward-looking monthly forecast
+│   │       │   ├── reports.tsx             # Monthly trend charts + CSV export
+│   │       │   ├── settings.tsx            # Profile, currency, categories
+│   │       │   ├── login.tsx
+│   │       │   └── register.tsx
 │   │       ├── components/
-│   │       │   ├── ui/               # shadcn/ui base components
-│   │       │   └── layout/           # AppShell + Sidebar
+│   │       │   ├── ui/                # shadcn/ui base components
+│   │       │   └── layout/            # App, RequireAuth, RedirectIfAuthenticated, LegacyRedirect, Sidebar, MobileNav
 │   │       └── lib/
 │   │           ├── api.ts            # Typed ApiClient (fetch wrapper, auto-refresh, CSRF injection)
 │   │           ├── store.ts          # Zustand auth store (user identity only)
@@ -112,7 +117,7 @@ application_centsible/
 ├── infra/                    # Container and deploy artefacts
 │   ├── deploy.sh             # Build + install + start/stop/logs/seed script
 │   ├── Containerfile.api     # Multi-stage build for the Bun/Elysia API
-│   ├── Containerfile.web     # Multi-stage build for the Next.js frontend
+│   ├── Containerfile.web     # Multi-stage build for the Vite SPA (served by Caddy)
 │   ├── api-entrypoint.sh     # DB readiness check + migration runner + process exec
 │   └── quadlet/
 │       ├── centsible.pod                # Podman pod definition (ports 10300, 10301)
@@ -157,7 +162,7 @@ cp .env.example .env
 | `JWT_SECRET` | *(dev default, prints warning)* | Secret for signing access tokens (15 min TTL) |
 | `JWT_REFRESH_SECRET` | *(dev default, prints warning)* | Secret for signing refresh tokens (7 day TTL). **Must differ from `JWT_SECRET`.** |
 | `WEB_URL` | `http://localhost:3000` | CORS allowed origin — must exactly match the web app origin (scheme + host + port) |
-| `NEXT_PUBLIC_API_URL` | `http://localhost:4000` | API base URL baked into the Next.js bundle at build time |
+| `VITE_API_URL` | `http://localhost:4000` | API base URL baked into the Vite bundle at build time |
 
 > **Security note:** In production `config.ts` throws a hard error if `JWT_SECRET`, `JWT_REFRESH_SECRET`, `DB_HOST`, `DB_USER`, `DB_PASSWORD`, or `DB_NAME` are missing. Dev defaults are intentionally weak and print a `⚠` console warning.
 
@@ -246,7 +251,7 @@ All scripts run from the **project root**:
 |---|---|
 | `bun run dev` | Starts API (`:4000`) and web (`:3000`) concurrently |
 | `bun run dev:api` | API only, with `--watch` hot reload |
-| `bun run dev:web` | Web only (`next dev`) |
+| `bun run dev:web` | Web only (`vite`) |
 | `bun run build` | Production build of all packages |
 | `bun run db:generate` | Generate a new Drizzle migration from schema changes |
 | `bun run db:migrate` | Apply pending migrations to the database |
@@ -261,7 +266,7 @@ Package-specific scripts (run with `bun run --filter @centsible/api <script>`):
 |---|---|---|
 | `db:seed` | api | Populate database with sample data |
 | `start` | api | Run the production bundle (`dist/index.js`) |
-| `start` | web | Run the Next.js production build |
+| `preview` | web | Serve the built Vite bundle locally (parity check) |
 
 ### Inspecting the local Quadlet stack
 
@@ -347,7 +352,7 @@ To restore an archived record, set `archivedAt = NULL` directly in Drizzle Studi
 
 ```
 Browser
-  └── Next.js (App Router — all pages are Client Components)
+  └── React SPA (Vite build, React Router 7, client-only)
         └── ApiClient (lib/api.ts)  ←── credentials: "include" + X-CSRF-Token header
               │
               ▼ HTTP (fetch)

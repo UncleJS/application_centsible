@@ -4,7 +4,7 @@
 
 [Unit]
 Description=Centsible Web Frontend (Pod)
-Documentation=https://nextjs.org/docs
+Documentation=https://vite.dev/ https://reactrouter.com/
 After=network-online.target centsible-api.service
 Requires=centsible-api.service
 BindsTo=centsible-pod.service
@@ -20,13 +20,11 @@ Pod=centsible.pod
 
 # Environment variables — repo-local .env supplies any user-overridable values
 # (e.g., WEB_URL). deploy.sh stamps in the absolute path at install time.
+# VITE_API_URL is build-time only; it is baked into the JS bundle by the
+# Containerfile, not read at runtime. Caddy hard-codes :10300 in its Caddyfile.
 EnvironmentFile=__REPO_ENV__
-Environment=NODE_ENV=production
-Environment=NEXT_PUBLIC_API_URL=http://localhost:10301
-Environment=HOSTNAME=0.0.0.0
-Environment=PORT=10300
 
-# Healthcheck — Next.js serves the app on PORT 10300.
+# Healthcheck — Caddy serves the SPA shell on :10300.
 HealthCmd=/bin/sh -c "wget -q -O /dev/null http://localhost:10300/ || exit 1"
 HealthInterval=15s
 HealthTimeout=5s

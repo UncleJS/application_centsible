@@ -1,7 +1,6 @@
 FROM registry.access.redhat.com/ubi10/ubi-minimal AS base
 
 ENV PATH="/usr/local/bin:${PATH}" \
-    NEXT_TELEMETRY_DISABLED=1 \
     PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
 RUN microdnf install -y \

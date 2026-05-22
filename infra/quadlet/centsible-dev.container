@@ -16,7 +16,6 @@ AutoUpdate=local
 Pod=centsible.pod
 WorkingDir=/workspace
 Exec=sleep infinity
-Environment=NEXT_TELEMETRY_DISABLED=1
 
 [Service]
 Restart=on-failure

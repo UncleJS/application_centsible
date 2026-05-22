@@ -112,7 +112,7 @@ build() {
   podman build \
     -t centsible-web:latest \
     -f "$SCRIPT_DIR/Containerfile.web" \
-    --build-arg NEXT_PUBLIC_API_URL=http://localhost:10301 \
+    --build-arg VITE_API_URL=http://localhost:10301 \
     "$PROJECT_ROOT"
 
   info "Images built successfully."

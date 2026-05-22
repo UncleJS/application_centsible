@@ -16,7 +16,7 @@ export default defineConfig({
   },
   webServer: {
     command:
-      "sh -lc 'test -f .next/standalone/packages/web/server.js || env -u NODE_ENV bun run build; mkdir -p .next/standalone/packages/web/.next; ln -sfn /workspace/packages/web/.next/static .next/standalone/packages/web/.next/static; if [ -d /workspace/packages/web/public ]; then ln -sfn /workspace/packages/web/public .next/standalone/packages/web/public; fi; cd .next/standalone/packages/web && HOSTNAME=127.0.0.1 PORT=3000 node server.js'",
+      "sh -lc 'test -d dist || bun run build; bun run vite preview --host 127.0.0.1 --port 3000 --strictPort'",
     url: "http://127.0.0.1:3000",
     reuseExistingServer: false,
     stdout: "pipe",

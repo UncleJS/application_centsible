@@ -1,8 +1,5 @@
-"use client";
-
 import { useState } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { Link, useLocation } from "react-router";
 import { Menu } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -22,7 +19,7 @@ import {
 import { cn } from "@/lib/utils";
 
 export function MobileNav() {
-  const pathname = usePathname();
+  const pathname = useLocation().pathname;
   const [open, setOpen] = useState(false);
   const title = getCurrentPageTitle(pathname);
 
@@ -70,7 +67,7 @@ export function MobileNav() {
               return (
                 <Link
                   key={item.href}
-                  href={item.href}
+                  to={item.href}
                   onClick={() => setOpen(false)}
                   className={cn(
                     "flex items-center gap-3 rounded-xl border px-4 py-3 text-sm font-medium transition-colors",
@@ -95,7 +92,7 @@ export function MobileNav() {
             return (
               <Link
                 key={item.href}
-                href={item.href}
+                to={item.href}
                 className={cn(
                   "flex min-w-0 flex-col items-center gap-1 rounded-xl px-2 py-2 text-[11px] font-medium transition-colors",
                   isActive

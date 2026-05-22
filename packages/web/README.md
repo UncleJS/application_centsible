@@ -2,7 +2,7 @@
 
 [![Web Smoke](https://github.com/UncleJS/application_centsible/actions/workflows/web-smoke.yml/badge.svg)](https://github.com/UncleJS/application_centsible/actions/workflows/web-smoke.yml)
 
-Next.js frontend for Centsible.
+React + Vite SPA frontend for Centsible. Routes are declared in `src/router.tsx` and rendered via React Router 7.
 
 ## Containerized workflow
 

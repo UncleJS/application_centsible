@@ -1,0 +1,24 @@
+# Centsible web SPA — served as static files with HTML5-history fallback.
+# Port matches PORT in the centsible-web Quadlet unit.
+{
+	# Disable the admin endpoint inside the pod (not needed at runtime).
+	admin off
+	# Trust forwarded headers from the reverse proxy that fronts the pod.
+	auto_https off
+}
+
+:10300 {
+	root * /srv
+	encode zstd gzip
+
+	# Hash-named asset files: long-lived cache.
+	@assets path /assets/*
+	header @assets Cache-Control "public, max-age=31536000, immutable"
+
+	# Everything else (HTML, favicon, etc.): no-cache so deploys take effect.
+	@html not path /assets/*
+	header @html Cache-Control "no-cache"
+
+	try_files {path} /index.html
+	file_server
+}

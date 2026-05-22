@@ -36,7 +36,7 @@ Host (rootless user session)
       ├── centsible-pod.service        (Podman pod — shared network namespace)
       │     ├── centsible-mariadb      MariaDB 11.7  — port 3306 (pod-internal only)
       │     ├── centsible-api          Bun/Elysia    — port 10301 (exposed)
-      │     ├── centsible-web          Next.js       — port 10300 (exposed)
+      │     ├── centsible-web          Caddy + SPA   — port 10300 (exposed)
       │     └── centsible-dev          Utility dev   — no exposed ports
       │
       └── systemd volumes
@@ -117,11 +117,11 @@ podman build \
   -f infra/Containerfile.api \
   .
 
-# Web image (NEXT_PUBLIC_API_URL is baked in at build time)
+# Web image (VITE_API_URL is baked in at build time)
 podman build \
   -t centsible-web:latest \
   -f infra/Containerfile.web \
-  --build-arg NEXT_PUBLIC_API_URL=http://localhost:10301 \
+  --build-arg VITE_API_URL=http://localhost:10301 \
   .
 ```
 
@@ -134,10 +134,10 @@ podman build \
 
 **`Containerfile.web`** (multi-stage):
 1. Stage 1: Installs all dependencies.
-2. Stage 2: Runs `next build` which produces a standalone output under `.next/standalone`.
-3. Stage 3: Copies only the standalone server, static files, and public directory; runs as non-root user `centsible`.
+2. Stage 2: Runs `vite build` which produces a static SPA bundle under `packages/web/dist`.
+3. Stage 3: A `docker.io/caddy:2-alpine` image with the build output copied to `/srv` and `infra/web/Caddyfile` installed at `/etc/caddy/Caddyfile`. Caddy serves the SPA on `:10300` with HTML5-history fallback.
 
-> **`NEXT_PUBLIC_API_URL` is baked into the Next.js bundle at build time.** If you change the API port or host, you must rebuild the web image.
+> **`VITE_API_URL` is baked into the JS bundle at build time.** If you change the API port or host, you must rebuild the web image.
 
 [↑ Go to TOC](#table-of-contents)
 
@@ -520,7 +520,7 @@ https://centsible.example.com  →  http://localhost:10300  (web)
 https://api.centsible.example.com  →  http://localhost:10301  (api, if exposed separately)
 ```
 
-Remember to update `WEB_URL` in `.env` and `NEXT_PUBLIC_API_URL` build-arg to match the public URLs, then rebuild the web image.
+Remember to update `WEB_URL` in `.env` and the `VITE_API_URL` build-arg to match the public URLs, then rebuild the web image.
 
 [↑ Go to TOC](#table-of-contents)
 
@@ -541,7 +541,7 @@ The API crashes fast if a required env var is absent in production. Check `.env`
 
 ### Web app shows a blank page / network errors
 
-- Confirm `NEXT_PUBLIC_API_URL` was set correctly **at build time** (it is baked into the JS bundle).
+- Confirm `VITE_API_URL` was set correctly **at build time** (it is baked into the JS bundle).
 - Rebuild the web image with the correct value: `./infra/deploy.sh build`
 
 ### CORS errors in browser

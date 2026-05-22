@@ -1,8 +1,5 @@
-"use client";
-
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { Link, useLocation } from "react-router";
 import { ChevronLeft, LogOut, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -13,7 +10,7 @@ import { isNavItemActive, navGroups } from "./navigation";
 const STORAGE_KEY = "centsible-sidebar-collapsed";
 
 export function Sidebar() {
-  const pathname = usePathname();
+  const pathname = useLocation().pathname;
   const { user, logout } = useAuthStore();
   const [collapsed, setCollapsed] = useState(() => {
     if (typeof window === "undefined") return false;
@@ -77,7 +74,7 @@ export function Sidebar() {
                   return (
                     <Link
                       key={item.href}
-                      href={item.href}
+                      to={item.href}
                       title={item.label}
                       className={cn(
                         "flex items-center rounded-xl border border-transparent px-3 py-2.5 text-sm font-medium transition-colors",
