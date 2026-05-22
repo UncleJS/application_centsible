@@ -11,9 +11,10 @@
     "db:migrate": "bun run --filter @centsible/api db:migrate",
     "db:studio": "bun run --filter @centsible/api db:studio",
     "test": "bun run --filter @centsible/api test",
+    "test:e2e": "bun run --filter @centsible/web test:e2e",
     "lint": "bun run --filter '*' lint",
     "typecheck": "bun run --filter '*' typecheck",
-    "verify:image": "bun run typecheck && bun run --filter @centsible/api test && bun run --filter @centsible/web lint"
+    "verify:image": "bun run typecheck && bun run --filter @centsible/api test && bun run --filter @centsible/web lint && bun run test:e2e"
   },
   "devDependencies": {
     "typescript": "^6.0.3"

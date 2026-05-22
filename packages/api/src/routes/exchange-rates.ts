@@ -2,7 +2,8 @@ import { Elysia, t } from "elysia";
 import { authMiddleware } from "../middleware/auth";
 import { db, schema } from "../db";
 import { eq, and, sql } from "drizzle-orm";
-import { EXCHANGE_RATE_API_BASE, SUPPORTED_CURRENCIES } from "@centsible/shared";
+import { SUPPORTED_CURRENCIES } from "@centsible/shared";
+import { config } from "../config";
 
 const supportedSet = new Set<string>(SUPPORTED_CURRENCIES);
 const MAX_CONVERSION_AMOUNT = 1_000_000_000;
@@ -53,8 +54,8 @@ export const exchangeRateRoutes = new Elysia({
 
     try {
       const url = target
-        ? `${EXCHANGE_RATE_API_BASE}/latest?from=${base}&to=${target}`
-        : `${EXCHANGE_RATE_API_BASE}/latest?from=${base}`;
+        ? `${config.exchangeRateApiBase}/latest?from=${base}&to=${target}`
+        : `${config.exchangeRateApiBase}/latest?from=${base}`;
 
       const response = await fetch(url);
       if (!response.ok) {
@@ -174,7 +175,7 @@ export const exchangeRateRoutes = new Elysia({
 
     try {
       const response = await fetch(
-        `${EXCHANGE_RATE_API_BASE}/latest?amount=${numAmount}&from=${fromUpper}&to=${toUpper}`
+        `${config.exchangeRateApiBase}/latest?amount=${numAmount}&from=${fromUpper}&to=${toUpper}`
       );
 
       if (!response.ok) {

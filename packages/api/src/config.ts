@@ -1,6 +1,8 @@
 // ── Centralized configuration ──
 // Crashes on startup if required secrets are missing or unsafe.
 
+import { EXCHANGE_RATE_API_BASE as EXCHANGE_RATE_API_BASE_DEFAULT } from "@centsible/shared";
+
 const isProduction = process.env.NODE_ENV === "production";
 
 const forbiddenSecretValues = new Set([
@@ -69,4 +71,10 @@ export const config = {
   dbUser: requireEnv("DB_USER", "centsible"),
   dbPassword: requireEnv("DB_PASSWORD", "centsible_dev"),
   dbName: requireEnv("DB_NAME", "centsible"),
+
+  // Exchange-rate upstream. Defaults to the shared Frankfurter base. Override
+  // via env so E2E can point at an unreachable host and exercise the cached
+  // fallback path without touching the public internet.
+  exchangeRateApiBase:
+    process.env.EXCHANGE_RATE_API_BASE?.trim() || EXCHANGE_RATE_API_BASE_DEFAULT,
 } as const;
