@@ -151,7 +151,7 @@ export const savingsGoalRoutes = new Elysia({
       const [updated] = await db
         .select()
         .from(schema.savingsGoals)
-        .where(eq(schema.savingsGoals.id, id));
+        .where(and(eq(schema.savingsGoals.id, id), eq(schema.savingsGoals.userId, user.id)));
 
       return { data: updated };
     },

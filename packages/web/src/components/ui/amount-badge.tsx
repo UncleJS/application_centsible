@@ -18,7 +18,7 @@ export function AmountBadge({
         "border px-2.5 py-1 font-mono text-xs",
         tone === "income" && "border-emerald-500/20 bg-emerald-500/10 text-emerald-300",
         tone === "expense" && "border-red-500/20 bg-red-500/10 text-red-300",
-        tone === "neutral" && "border-zinc-700 bg-zinc-800 text-zinc-200",
+        tone === "neutral" && "border-zinc-700 bg-zinc-800 text-foreground",
         className
       )}
     >

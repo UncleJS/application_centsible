@@ -181,7 +181,7 @@ export const recurringIncomeRoutes = new Elysia({
       const [updated] = await db
         .select()
         .from(schema.recurringIncome)
-        .where(eq(schema.recurringIncome.id, id));
+        .where(and(eq(schema.recurringIncome.id, id), eq(schema.recurringIncome.userId, user.id)));
 
       return { data: updated };
     },

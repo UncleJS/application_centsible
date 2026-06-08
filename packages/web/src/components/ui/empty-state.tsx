@@ -24,12 +24,12 @@ export function EmptyState({
         className
       )}
     >
-      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-800 text-zinc-400">
+      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-800 text-foreground">
         <Icon className="size-6" />
       </div>
       <div className="space-y-1">
-        <p className="text-base font-semibold text-zinc-200">{title}</p>
-        <p className="max-w-md text-sm text-zinc-500">{description}</p>
+        <p className="text-base font-semibold text-foreground">{title}</p>
+        <p className="max-w-md text-sm text-foreground">{description}</p>
       </div>
       {action}
     </div>

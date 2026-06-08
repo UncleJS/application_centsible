@@ -166,12 +166,12 @@ function SubscriptionCard({
     <Card className="bg-zinc-900 border-zinc-800 flex flex-col">
       <CardHeader className="pb-0">
         <div className="flex items-start gap-2 min-w-0">
-          <CardTitle className="text-base text-zinc-100 leading-snug truncate flex-1">
+          <CardTitle className="text-base text-foreground leading-snug truncate flex-1">
             {subscription.name}
           </CardTitle>
         </div>
         {subscription.description && (
-          <CardDescription className="text-xs text-zinc-500 line-clamp-1">
+          <CardDescription className="text-xs text-foreground line-clamp-1">
             {subscription.description}
           </CardDescription>
         )}
@@ -180,7 +180,7 @@ function SubscriptionCard({
             <Button
               variant="ghost"
               size="icon-sm"
-              className="text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800"
+              className="text-foreground hover:text-foreground hover:bg-zinc-800"
               onClick={() => onEdit(subscription)}
               aria-label={`Edit ${subscription.name}`}
             >
@@ -189,7 +189,7 @@ function SubscriptionCard({
             <Button
               variant="ghost"
               size="icon-sm"
-              className="text-zinc-400 hover:text-red-400 hover:bg-zinc-800"
+              className="text-foreground hover:text-red-400 hover:bg-zinc-800"
               onClick={() => onDelete(subscription)}
               aria-label={`Delete ${subscription.name}`}
             >
@@ -205,10 +205,10 @@ function SubscriptionCard({
         {/* Amount + cycle */}
         <div className="flex items-center justify-between gap-2">
           <div className="flex flex-col gap-0.5 min-w-0">
-            <span className="text-xl font-bold font-mono text-zinc-100">
+            <span className="text-xl font-bold font-mono text-foreground">
               {formatCurrency(subscription.amount, subscription.currency)}
               {localAmount !== null && (
-                <span className="text-sm font-normal text-zinc-400 ml-1.5">
+                <span className="text-sm font-normal text-foreground ml-1.5">
                   ({formatCurrency(localAmount, userCurrency)})
                 </span>
               )}
@@ -216,17 +216,17 @@ function SubscriptionCard({
           </div>
           <Badge
             variant="outline"
-            className="text-xs border-zinc-700 text-zinc-400 bg-zinc-800/50 shrink-0"
+            className="text-xs border-zinc-700 text-foreground bg-zinc-800/50 shrink-0"
           >
             {cycleLabel}
           </Badge>
         </div>
 
-        <div className="flex flex-col gap-1.5 text-xs text-zinc-400">
+        <div className="flex flex-col gap-1.5 text-xs text-foreground">
           {/* Next renewal */}
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5">
-              <CalendarClock className="size-3 shrink-0 text-zinc-600" />
+              <CalendarClock className="size-3 shrink-0 text-foreground" />
               <span className="font-mono">{formatDate(subscription.nextRenewalDate)}</span>
             </div>
             <span
@@ -238,8 +238,8 @@ function SubscriptionCard({
 
           {/* Auto-renew */}
           <div className="flex items-center gap-1.5">
-            <RefreshCw className={`size-3 shrink-0 ${subscription.autoRenew ? "text-emerald-500" : "text-zinc-600"}`} />
-            <span className={subscription.autoRenew ? "text-emerald-400" : "text-zinc-600"}>
+            <RefreshCw className={`size-3 shrink-0 ${subscription.autoRenew ? "text-emerald-500" : "text-foreground"}`} />
+            <span className={subscription.autoRenew ? "text-emerald-400" : "text-foreground"}>
               {subscription.autoRenew ? "Auto-renew on" : "Auto-renew off"}
             </span>
           </div>
@@ -247,12 +247,12 @@ function SubscriptionCard({
           {/* URL */}
           {subscription.url && isSafeUrl(subscription.url) && (
             <div className="flex items-center gap-1.5">
-              <LinkIcon className="size-3 shrink-0 text-zinc-600" />
+              <LinkIcon className="size-3 shrink-0 text-foreground" />
               <a
                 href={subscription.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="truncate text-zinc-500 hover:text-zinc-300 transition-colors"
+                className="truncate text-foreground hover:text-foreground transition-colors"
                 title={subscription.url}
               >
                 {new URL(subscription.url).hostname}
@@ -395,9 +395,9 @@ function SubscriptionDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-zinc-900 border-zinc-800 text-zinc-100 sm:max-w-md max-h-[90vh] overflow-y-auto">
+      <DialogContent className="bg-zinc-900 border-zinc-800 text-foreground sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-zinc-100">
+          <DialogTitle className="text-foreground">
             {isEditing ? "Edit Subscription" : "Add Subscription"}
           </DialogTitle>
         </DialogHeader>
@@ -405,7 +405,7 @@ function SubscriptionDialog({
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           {/* Name */}
           <div className="flex flex-col gap-2">
-            <Label className="text-zinc-300">
+            <Label className="text-foreground">
               Name <span className="text-red-400">*</span>
             </Label>
             <Input
@@ -413,27 +413,27 @@ function SubscriptionDialog({
               placeholder="Netflix, Spotify…"
               value={form.name}
               onChange={(e) => setField("name", e.target.value)}
-              className="border-zinc-700 bg-zinc-800/50 text-zinc-100 placeholder:text-zinc-600"
+              className="border-zinc-700 bg-zinc-800/50 text-foreground placeholder:text-foreground"
               required
             />
           </div>
 
           {/* Description */}
           <div className="flex flex-col gap-2">
-            <Label className="text-zinc-300">Description</Label>
+            <Label className="text-foreground">Description</Label>
             <Input
               type="text"
               placeholder="Optional note…"
               value={form.description}
               onChange={(e) => setField("description", e.target.value)}
-              className="border-zinc-700 bg-zinc-800/50 text-zinc-100 placeholder:text-zinc-600"
+              className="border-zinc-700 bg-zinc-800/50 text-foreground placeholder:text-foreground"
             />
           </div>
 
           {/* Amount + Currency row */}
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-2">
-              <Label className="text-zinc-300">
+              <Label className="text-foreground">
                 Amount <span className="text-red-400">*</span>
               </Label>
               <Input
@@ -444,20 +444,20 @@ function SubscriptionDialog({
                 placeholder="0.00"
                 value={form.amount}
                 onChange={(e) => setField("amount", e.target.value)}
-                className="border-zinc-700 bg-zinc-800/50 text-zinc-100 placeholder:text-zinc-600 font-mono"
+                className="border-zinc-700 bg-zinc-800/50 text-foreground placeholder:text-foreground font-mono"
                 required
               />
             </div>
 
             <div className="flex flex-col gap-2">
-              <Label className="text-zinc-300">Currency</Label>
+              <Label className="text-foreground">Currency</Label>
               <Select value={form.currency} onValueChange={(v) => setField("currency", v)}>
-                <SelectTrigger className="w-full border-zinc-700 bg-zinc-800/50 text-zinc-100">
+                <SelectTrigger className="w-full border-zinc-700 bg-zinc-800/50 text-foreground">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-zinc-900 border-zinc-700 text-zinc-100 max-h-60">
+                <SelectContent className="bg-zinc-900 border-zinc-700 text-foreground max-h-60">
                   {SUPPORTED_CURRENCIES.map((c) => (
-                    <SelectItem key={c} value={c} className="focus:bg-zinc-800 focus:text-zinc-100 font-mono">
+                    <SelectItem key={c} value={c} className="focus:bg-zinc-800 focus:text-foreground font-mono">
                       {c}
                     </SelectItem>
                   ))}
@@ -468,20 +468,20 @@ function SubscriptionDialog({
 
           {/* Billing Cycle */}
           <div className="flex flex-col gap-2">
-            <Label className="text-zinc-300">Billing Cycle</Label>
+            <Label className="text-foreground">Billing Cycle</Label>
             <Select
               value={form.billingCycle}
               onValueChange={(v) => setField("billingCycle", v as BillingCycle)}
             >
-              <SelectTrigger className="w-full border-zinc-700 bg-zinc-800/50 text-zinc-100">
+              <SelectTrigger className="w-full border-zinc-700 bg-zinc-800/50 text-foreground">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="bg-zinc-900 border-zinc-700 text-zinc-100">
+              <SelectContent className="bg-zinc-900 border-zinc-700 text-foreground">
                 {Object.entries(BILLING_CYCLE_LABELS).map(([value, label]) => (
                   <SelectItem
                     key={value}
                     value={value}
-                    className="focus:bg-zinc-800 focus:text-zinc-100"
+                    className="focus:bg-zinc-800 focus:text-foreground"
                   >
                     {label}
                   </SelectItem>
@@ -510,35 +510,35 @@ function SubscriptionDialog({
 
           {/* URL */}
           <div className="flex flex-col gap-2">
-            <Label className="text-zinc-300">URL</Label>
+            <Label className="text-foreground">URL</Label>
             <Input
               type="url"
               placeholder="https://…"
               value={form.url}
               onChange={(e) => setField("url", e.target.value)}
-              className="border-zinc-700 bg-zinc-800/50 text-zinc-100 placeholder:text-zinc-600 font-mono"
+              className="border-zinc-700 bg-zinc-800/50 text-foreground placeholder:text-foreground font-mono"
             />
           </div>
 
           {/* Category */}
           <div className="flex flex-col gap-2">
-            <Label className="text-zinc-300">Category</Label>
+            <Label className="text-foreground">Category</Label>
             <Select
               value={form.categoryId || "__none__"}
               onValueChange={(v) => setField("categoryId", v === "__none__" ? "" : v)}
             >
-              <SelectTrigger className="w-full border-zinc-700 bg-zinc-800/50 text-zinc-100">
+              <SelectTrigger className="w-full border-zinc-700 bg-zinc-800/50 text-foreground">
                 <SelectValue placeholder="None" />
               </SelectTrigger>
-              <SelectContent className="bg-zinc-900 border-zinc-700 text-zinc-100">
-                <SelectItem value="__none__" className="focus:bg-zinc-800 focus:text-zinc-100 text-zinc-500">
+              <SelectContent className="bg-zinc-900 border-zinc-700 text-foreground">
+                <SelectItem value="__none__" className="focus:bg-zinc-800 focus:text-foreground text-foreground">
                   None
                 </SelectItem>
                 {expenseCategories.map((cat) => (
                   <SelectItem
                     key={cat.id}
                     value={String(cat.id)}
-                    className="focus:bg-zinc-800 focus:text-zinc-100"
+                    className="focus:bg-zinc-800 focus:text-foreground"
                   >
                     {cat.name}
                   </SelectItem>
@@ -550,8 +550,8 @@ function SubscriptionDialog({
           {/* Auto-renew toggle */}
           <div className="flex items-center justify-between rounded-lg border border-zinc-800 bg-zinc-800/30 px-4 py-3">
             <div className="flex flex-col gap-0.5">
-              <span className="text-sm font-medium text-zinc-300">Auto-renew</span>
-              <span className="text-xs text-zinc-500">Automatically renews each billing cycle</span>
+              <span className="text-sm font-medium text-foreground">Auto-renew</span>
+              <span className="text-xs text-foreground">Automatically renews each billing cycle</span>
             </div>
             <button
               type="button"
@@ -574,7 +574,7 @@ function SubscriptionDialog({
             <Button
               type="button"
               variant="outline"
-              className="border-zinc-700 bg-transparent text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"
+              className="border-zinc-700 bg-transparent text-foreground hover:bg-zinc-800 hover:text-foreground"
               onClick={() => onOpenChange(false)}
               disabled={submitting}
             >
@@ -612,18 +612,18 @@ function DeleteDialog({
 }: DeleteDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-zinc-900 border-zinc-800 text-zinc-100 sm:max-w-md">
+      <DialogContent className="bg-zinc-900 border-zinc-800 text-foreground sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-zinc-100 flex items-center gap-2">
+          <DialogTitle className="text-foreground flex items-center gap-2">
             <AlertCircle className="size-5 text-red-400 shrink-0" />
             Delete Subscription
           </DialogTitle>
         </DialogHeader>
 
         <div className="flex flex-col gap-2 py-1">
-          <p className="text-sm text-zinc-300">
+          <p className="text-sm text-foreground">
             Are you sure you want to delete{" "}
-            <span className="font-semibold text-zinc-100">
+            <span className="font-semibold text-foreground">
               {subscription?.name}
             </span>
             ? This action cannot be undone.
@@ -634,7 +634,7 @@ function DeleteDialog({
           <Button
             type="button"
             variant="outline"
-            className="border-zinc-700 bg-transparent text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"
+            className="border-zinc-700 bg-transparent text-foreground hover:bg-zinc-800 hover:text-foreground"
             onClick={() => onOpenChange(false)}
             disabled={deleting}
           >

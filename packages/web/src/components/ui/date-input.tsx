@@ -33,17 +33,17 @@ export function DateOnlyInput({
       {label && (
         <label
           htmlFor={name}
-          className="block text-sm font-medium text-zinc-300 mb-1.5"
+          className="block text-sm font-medium text-foreground mb-1.5"
         >
           {label}
           {required && <span className="text-red-400 ml-1">*</span>}
         </label>
       )}
       <div className="relative">
-        {/* Overlay showing yyyy-mm-dd format consistently */}
-        <div className="pointer-events-none absolute inset-0 flex items-center px-3 font-mono text-sm text-zinc-100">
+        {/* Overlay showing YYYY-MM-DD format consistently */}
+        <div className="pointer-events-none absolute inset-0 flex items-center px-3 font-mono text-sm text-foreground">
           {dateValue || (
-            <span className="text-zinc-500">yyyy-mm-dd</span>
+            <span className="text-foreground">YYYY-MM-DD</span>
           )}
         </div>
         {/* Native date input with transparent text */}

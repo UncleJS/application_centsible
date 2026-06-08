@@ -279,7 +279,7 @@ export const budgetRoutes = new Elysia({
       const [updated] = await db
         .select()
         .from(schema.budgets)
-        .where(eq(schema.budgets.id, id));
+        .where(and(eq(schema.budgets.id, id), eq(schema.budgets.userId, user.id)));
 
       return { data: updated };
     },

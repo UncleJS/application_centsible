@@ -250,7 +250,7 @@ export default function DashboardPage() {
         action={
           <Button
             variant="outline"
-            className="border-zinc-700 bg-zinc-950/40 text-zinc-200 hover:bg-zinc-800"
+            className="border-zinc-700 bg-background/40 text-foreground hover:bg-zinc-800"
             onClick={() => window.location.reload()}
           >
             Refresh
@@ -312,17 +312,17 @@ export default function DashboardPage() {
             {/* Budget Progress */}
             <Card className="border-zinc-800 bg-zinc-900">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base font-semibold text-zinc-100">
-                  <Target className="h-4 w-4 text-zinc-400" />
+                <CardTitle className="flex items-center gap-2 text-base font-semibold text-foreground">
+                  <Target className="h-4 w-4 text-foreground" />
                   Budget Progress
                 </CardTitle>
-                <CardDescription className="text-zinc-500">
+                <CardDescription className="text-foreground">
                   Top 5 categories this month
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 {topBudgets.length === 0 ? (
-                  <p className="py-6 text-center text-sm text-zinc-500">
+                  <p className="py-6 text-center text-sm text-foreground">
                     No budgets set for this month.
                   </p>
                 ) : (
@@ -339,12 +339,12 @@ export default function DashboardPage() {
                       return (
                         <div key={budget.id}>
                           <div className="mb-1.5 flex items-center justify-between">
-                            <span className="text-sm font-medium text-zinc-200">
+                            <span className="text-sm font-medium text-foreground">
                               {budget.categoryName ?? "Unknown"}
                             </span>
-                            <span className="text-xs text-zinc-400">
+                            <span className="text-xs text-foreground">
                               {formatCurrency(budget.spent ?? "0", currency)}{" "}
-                              <span className="text-zinc-600">/</span>{" "}
+                              <span className="text-foreground">/</span>{" "}
                               {formatCurrency(budget.amount, currency)}
                             </span>
                           </div>
@@ -354,7 +354,7 @@ export default function DashboardPage() {
                               style={{ width: `${pct}%` }}
                             />
                           </div>
-                          <p className="mt-1 text-right text-xs text-zinc-500">
+                          <p className="mt-1 text-right text-xs text-foreground">
                             {pct.toFixed(1)}%
                           </p>
                         </div>
@@ -370,17 +370,17 @@ export default function DashboardPage() {
               {/* Upcoming Subscriptions */}
               <Card className="border-zinc-800 bg-zinc-900">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-base font-semibold text-zinc-100">
-                    <CreditCard className="h-4 w-4 text-zinc-400" />
+                  <CardTitle className="flex items-center gap-2 text-base font-semibold text-foreground">
+                    <CreditCard className="h-4 w-4 text-foreground" />
                     Upcoming Subscriptions
                   </CardTitle>
-                  <CardDescription className="text-zinc-500">
+                  <CardDescription className="text-foreground">
                     Renewals in the next 30 days
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   {subscriptions.length === 0 ? (
-                    <p className="py-4 text-center text-sm text-zinc-500">
+                    <p className="py-4 text-center text-sm text-foreground">
                       No upcoming renewals.
                     </p>
                   ) : (
@@ -395,7 +395,7 @@ export default function DashboardPage() {
                             className="flex items-center justify-between py-3 first:pt-0 last:pb-0"
                           >
                             <div className="min-w-0">
-                              <p className="truncate text-sm font-medium text-zinc-200">
+                              <p className="truncate text-sm font-medium text-foreground">
                                 {sub.name}
                               </p>
                               <p className={`text-xs font-medium ${dayColor}`}>
@@ -407,10 +407,10 @@ export default function DashboardPage() {
                               </p>
                             </div>
                             <div className="ml-4 shrink-0 text-right">
-                              <p className="text-sm font-semibold text-zinc-100">
+                              <p className="text-sm font-semibold text-foreground">
                                 {formatCurrency(sub.amount, sub.currency)}
                               </p>
-                              <p className="text-xs capitalize text-zinc-500">
+                              <p className="text-xs capitalize text-foreground">
                                 {sub.billingCycle}
                               </p>
                             </div>
@@ -425,17 +425,17 @@ export default function DashboardPage() {
               {/* Savings Goals */}
               <Card className="border-zinc-800 bg-zinc-900">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-base font-semibold text-zinc-100">
-                    <PiggyBank className="h-4 w-4 text-zinc-400" />
+                  <CardTitle className="flex items-center gap-2 text-base font-semibold text-foreground">
+                    <PiggyBank className="h-4 w-4 text-foreground" />
                     Savings Goals
                   </CardTitle>
-                  <CardDescription className="text-zinc-500">
+                  <CardDescription className="text-foreground">
                     Progress towards your targets
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   {savingsGoals.length === 0 ? (
-                    <p className="py-4 text-center text-sm text-zinc-500">
+                    <p className="py-4 text-center text-sm text-foreground">
                       No savings goals yet.
                     </p>
                   ) : (
@@ -458,7 +458,7 @@ export default function DashboardPage() {
                         return (
                           <div key={goal.id}>
                             <div className="mb-1.5 flex items-center justify-between">
-                              <span className="flex items-center gap-1.5 text-sm font-medium text-zinc-200">
+                              <span className="flex items-center gap-1.5 text-sm font-medium text-foreground">
                                 {goal.icon && (
                                   <span className="text-base leading-none">
                                     {goal.icon}
@@ -466,9 +466,9 @@ export default function DashboardPage() {
                                 )}
                                 {goal.name}
                               </span>
-                              <span className="text-xs text-zinc-400">
+                              <span className="text-xs text-foreground">
                                 {formatCurrency(goal.currentAmount, goal.currency)}{" "}
-                                <span className="text-zinc-600">/</span>{" "}
+                                <span className="text-foreground">/</span>{" "}
                                 {formatCurrency(goal.targetAmount, goal.currency)}
                               </span>
                             </div>
@@ -478,10 +478,10 @@ export default function DashboardPage() {
                                 style={{ width: `${pct}%` }}
                               />
                             </div>
-                            <p className="mt-1 text-right text-xs text-zinc-500">
+                            <p className="mt-1 text-right text-xs text-foreground">
                               {pct.toFixed(1)}%
                               {goal.targetDate && (
-                                <span className="ml-2 text-zinc-600">
+                                <span className="ml-2 text-foreground">
                                   · target {goal.targetDate}
                                 </span>
                               )}
@@ -489,14 +489,14 @@ export default function DashboardPage() {
                             {pct >= 100 ? (
                               <p className="text-xs font-medium text-green-400">Goal reached!</p>
                             ) : monthlyNeeded !== null ? (
-                              <p className="text-xs text-zinc-500">
-                                <span className="text-zinc-300 font-mono">
+                              <p className="text-xs text-foreground">
+                                <span className="text-foreground font-mono">
                                   {formatCurrency(monthlyNeeded, goal.currency)}
                                 </span>
                                 {" "}/mo needed
                               </p>
                             ) : daysUntil(goal.targetDate) < 0 ? (
-                              <p className="text-xs text-zinc-600">Overdue</p>
+                              <p className="text-xs text-foreground">Overdue</p>
                             ) : null}
                           </div>
                         );

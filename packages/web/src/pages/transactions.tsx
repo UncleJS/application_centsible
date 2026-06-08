@@ -312,10 +312,10 @@ export default function TransactionsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-zinc-50 tracking-tight">
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">
             Transactions
           </h1>
-          <p className="text-sm text-zinc-400 mt-0.5">
+          <p className="text-sm text-foreground mt-0.5">
             {loadingTx ? (
               <span className="inline-block h-4 w-24 animate-pulse rounded bg-zinc-800" />
             ) : (
@@ -439,11 +439,11 @@ export default function TransactionsPage() {
               {/* Recurring toggle */}
               <div className="flex items-center justify-between rounded-lg border border-zinc-800 bg-zinc-800/30 px-4 py-3">
                 <div className="flex flex-col gap-0.5">
-                  <span className="text-sm font-medium text-zinc-300 flex items-center gap-1.5">
-                    <Repeat2 className="size-3.5 text-zinc-500" />
+                  <span className="text-sm font-medium text-foreground flex items-center gap-1.5">
+                    <Repeat2 className="size-3.5 text-foreground" />
                     Recurring
                   </span>
-                  <span className="text-xs text-zinc-500">Mark as a recurring transaction</span>
+                  <span className="text-xs text-foreground">Mark as a recurring transaction</span>
                 </div>
                 <button
                   type="button"
@@ -488,7 +488,7 @@ export default function TransactionsPage() {
         <CardContent className="pt-6">
           <div className="flex flex-wrap gap-3 items-end">
             <div className="flex flex-col gap-1.5 min-w-[130px]">
-              <Label className="text-zinc-400 text-xs uppercase tracking-wide">
+              <Label className="text-foreground text-xs uppercase tracking-wide">
                 Type
               </Label>
               <Select
@@ -509,7 +509,7 @@ export default function TransactionsPage() {
             </div>
 
             <div className="flex flex-col gap-1.5 min-w-[160px]">
-              <Label className="text-zinc-400 text-xs uppercase tracking-wide">
+              <Label className="text-foreground text-xs uppercase tracking-wide">
                 Category
               </Label>
               <Select
@@ -537,7 +537,7 @@ export default function TransactionsPage() {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label className="text-zinc-400 text-xs uppercase tracking-wide">
+              <Label className="text-foreground text-xs uppercase tracking-wide">
                 From
               </Label>
               <DateOnlyInput
@@ -549,7 +549,7 @@ export default function TransactionsPage() {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label className="text-zinc-400 text-xs uppercase tracking-wide">
+              <Label className="text-foreground text-xs uppercase tracking-wide">
                 To
               </Label>
               <DateOnlyInput
@@ -561,11 +561,11 @@ export default function TransactionsPage() {
             </div>
 
             <div className="flex flex-col gap-1.5 flex-1 min-w-[180px]">
-              <Label className="text-zinc-400 text-xs uppercase tracking-wide">
+              <Label className="text-foreground text-xs uppercase tracking-wide">
                 Search
               </Label>
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-zinc-500 pointer-events-none" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-foreground pointer-events-none" />
                 <Input
                   placeholder="Search description…"
                   value={searchRaw}
@@ -580,7 +580,7 @@ export default function TransactionsPage() {
                 variant="ghost"
                 size="sm"
                 onClick={clearFilters}
-                className="text-zinc-400 hover:text-zinc-100 self-end"
+                className="text-foreground hover:text-foreground self-end"
               >
                 Clear filters
               </Button>
@@ -592,10 +592,10 @@ export default function TransactionsPage() {
       {/* Transactions Table */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-zinc-100">Transactions</CardTitle>
+          <CardTitle className="text-foreground">Transactions</CardTitle>
           <CardAction>
             {!loadingTx && totalPages > 1 && (
-              <span className="text-sm text-zinc-400">
+              <span className="text-sm text-foreground">
                 Page {currentPage} of {totalPages}
               </span>
             )}
@@ -605,14 +605,14 @@ export default function TransactionsPage() {
           <Table>
             <TableHeader>
               <TableRow className="border-zinc-800">
-                <TableHead className="pl-6 text-zinc-400">Date</TableHead>
-                <TableHead className="text-zinc-400">Description</TableHead>
-                <TableHead className="text-zinc-400">Category</TableHead>
-                <TableHead className="text-zinc-400">Type</TableHead>
-                <TableHead className="text-right text-zinc-400">
+                <TableHead className="pl-6 text-foreground">Date</TableHead>
+                <TableHead className="text-foreground">Description</TableHead>
+                <TableHead className="text-foreground">Category</TableHead>
+                <TableHead className="text-foreground">Type</TableHead>
+                <TableHead className="text-right text-foreground">
                   Amount
                 </TableHead>
-                <TableHead className="pr-6 text-right text-zinc-400">
+                <TableHead className="pr-6 text-right text-foreground">
                   Actions
                 </TableHead>
               </TableRow>
@@ -645,7 +645,7 @@ export default function TransactionsPage() {
                 <TableRow className="border-zinc-800">
                   <TableCell
                     colSpan={6}
-                    className="py-16 text-center text-zinc-500"
+                    className="py-16 text-center text-foreground"
                   >
                     {hasActiveFilters
                       ? "No transactions match your filters."
@@ -661,11 +661,11 @@ export default function TransactionsPage() {
                       key={tx.id}
                       className="border-zinc-800 hover:bg-zinc-800/40 transition-colors"
                     >
-                      <TableCell className="pl-6 font-mono text-zinc-300 text-sm">
+                      <TableCell className="pl-6 font-mono text-foreground text-sm">
                         {formatDate(tx.date)}
                       </TableCell>
 
-                      <TableCell className="text-zinc-100 max-w-[200px]">
+                      <TableCell className="text-foreground max-w-[200px]">
                         <span className="flex items-center gap-1.5 truncate" title={tx.description}>
                           <span className="truncate">{tx.description}</span>
                           {tx.isRecurring && (
@@ -677,7 +677,7 @@ export default function TransactionsPage() {
                         </span>
                       </TableCell>
 
-                      <TableCell className="text-zinc-300">
+                      <TableCell className="text-foreground">
                         {cat ? (
                           <span className="flex items-center gap-1.5">
                             <span className="text-base leading-none">
@@ -686,7 +686,7 @@ export default function TransactionsPage() {
                             <span className="text-sm">{cat.name}</span>
                           </span>
                         ) : (
-                          <span className="text-zinc-600 text-sm">—</span>
+                          <span className="text-foreground text-sm">—</span>
                         )}
                       </TableCell>
 
@@ -721,7 +721,7 @@ export default function TransactionsPage() {
                             variant="ghost"
                             size="icon-sm"
                             onClick={() => openEditDialog(tx)}
-                            className="text-zinc-400 hover:text-zinc-100 hover:bg-zinc-700"
+                            className="text-foreground hover:text-foreground hover:bg-zinc-700"
                             title="Edit transaction"
                           >
                             <Pencil className="size-4" />
@@ -730,7 +730,7 @@ export default function TransactionsPage() {
                             variant="ghost"
                             size="icon-sm"
                             onClick={() => openDeleteDialog(tx)}
-                            className="text-zinc-400 hover:text-red-400 hover:bg-red-950/40"
+                            className="text-foreground hover:text-red-400 hover:bg-red-950/40"
                             title="Delete transaction"
                           >
                             <Trash2 className="size-4" />
@@ -747,7 +747,7 @@ export default function TransactionsPage() {
           {/* Pagination */}
           {!loadingTx && totalPages > 1 && (
             <div className="flex items-center justify-between px-6 pt-4 pb-2">
-              <span className="text-sm text-zinc-500">
+              <span className="text-sm text-foreground">
                 Showing{" "}
                 {Math.min((currentPage - 1) * PAGE_SIZE + 1, total)}–
                 {Math.min(currentPage * PAGE_SIZE, total)} of {total}
@@ -761,7 +761,7 @@ export default function TransactionsPage() {
                 >
                   Previous
                 </Button>
-                <span className="text-sm text-zinc-400 px-2">
+                <span className="text-sm text-foreground px-2">
                   Page {currentPage} of {totalPages}
                 </span>
                 <Button
@@ -785,15 +785,15 @@ export default function TransactionsPage() {
             <DialogTitle>Delete Transaction</DialogTitle>
           </DialogHeader>
           <div className="py-2">
-            <p className="text-sm text-zinc-300">
+            <p className="text-sm text-foreground">
               Are you sure you want to delete{" "}
-              <span className="font-semibold text-zinc-100">
+              <span className="font-semibold text-foreground">
                 &ldquo;{deletingTx?.description}&rdquo;
               </span>
               ? This action cannot be undone.
             </p>
             {deletingTx && (
-              <p className="mt-1 text-sm text-zinc-500">
+              <p className="mt-1 text-sm text-foreground">
                 {formatDate(deletingTx.date)} ·{" "}
                 {formatCurrency(deletingTx.amount, currency)}
               </p>

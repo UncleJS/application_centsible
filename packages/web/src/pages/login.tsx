@@ -66,14 +66,14 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-950 px-4 py-12">
+    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
       <div className="w-full max-w-sm">
         {/* Branding */}
         <div className="mb-8 flex flex-col items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-600 text-2xl font-bold text-white select-none">
             ¢
           </div>
-          <span className="text-2xl font-bold tracking-tight text-zinc-100">
+          <span className="text-2xl font-bold tracking-tight text-foreground">
             Centsible
           </span>
         </div>
@@ -81,10 +81,10 @@ export default function LoginPage() {
         {/* Card */}
         <Card className="border-zinc-800 bg-zinc-900 shadow-xl">
           <CardHeader className="pb-0">
-            <CardTitle className="text-center text-xl text-zinc-100">
+            <CardTitle className="text-center text-xl text-foreground">
               Welcome back
             </CardTitle>
-            <CardDescription className="text-center text-zinc-400">
+            <CardDescription className="text-center text-foreground">
               Sign in to your account to continue
             </CardDescription>
           </CardHeader>
@@ -93,7 +93,7 @@ export default function LoginPage() {
             <form onSubmit={handleSubmit} noValidate className="space-y-5">
               {/* Email */}
               <div className="space-y-1.5">
-                <Label htmlFor="email" className="text-zinc-300">
+                <Label htmlFor="email" className="text-foreground">
                   Email address
                 </Label>
                 <Input
@@ -106,7 +106,7 @@ export default function LoginPage() {
                   aria-invalid={!!emailError}
                   aria-describedby={emailError ? "email-error" : undefined}
                   disabled={isLoading}
-                  className="border-zinc-700 bg-zinc-800 text-zinc-100 placeholder:text-zinc-500 focus-visible:border-emerald-500 focus-visible:ring-emerald-500/30"
+                  className="border-zinc-700 bg-zinc-800 text-foreground placeholder:text-foreground focus-visible:border-emerald-500 focus-visible:ring-emerald-500/30"
                 />
                 {emailError && (
                   <p
@@ -121,7 +121,7 @@ export default function LoginPage() {
 
               {/* Password */}
               <div className="space-y-1.5">
-                <Label htmlFor="password" className="text-zinc-300">
+                <Label htmlFor="password" className="text-foreground">
                   Password
                 </Label>
                 <Input
@@ -136,7 +136,7 @@ export default function LoginPage() {
                     passwordError ? "password-error" : undefined
                   }
                   disabled={isLoading}
-                  className="border-zinc-700 bg-zinc-800 text-zinc-100 placeholder:text-zinc-500 focus-visible:border-emerald-500 focus-visible:ring-emerald-500/30"
+                  className="border-zinc-700 bg-zinc-800 text-foreground placeholder:text-foreground focus-visible:border-emerald-500 focus-visible:ring-emerald-500/30"
                 />
                 {passwordError && (
                   <p
@@ -170,7 +170,7 @@ export default function LoginPage() {
         </Card>
 
         {/* Register link */}
-        <p className="mt-6 text-center text-sm text-zinc-500">
+        <p className="mt-6 text-center text-sm text-foreground">
           Don&apos;t have an account?{" "}
           <Link
             to="/register"

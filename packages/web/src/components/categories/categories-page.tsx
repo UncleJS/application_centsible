@@ -204,21 +204,21 @@ export function CategoriesPage({ type, showHeader = true }: CategoriesPageProps)
         <div className="flex flex-col gap-1">
           {showHeader ? (
             <>
-              <h1 className={`text-2xl font-bold text-zinc-100 flex items-center gap-2`}>
+              <h1 className={`text-2xl font-bold text-foreground flex items-center gap-2`}>
                 <Tag className={`size-6 ${accentColor}`} />
                 {typeLabel} Categories
               </h1>
-              <p className="text-sm text-zinc-500">
+              <p className="text-sm text-foreground">
                 Manage your {type} categories for transactions and budgets.
               </p>
             </>
           ) : (
             <>
-              <div className="flex items-center gap-2 text-sm font-semibold text-zinc-200">
+              <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
                 <Tag className={`size-4 ${accentColor}`} />
                 {typeLabel}
               </div>
-              <p className="text-sm text-zinc-500">
+              <p className="text-sm text-foreground">
                 Manage your {type} categories for transactions and budgets.
               </p>
             </>
@@ -245,12 +245,12 @@ export function CategoriesPage({ type, showHeader = true }: CategoriesPageProps)
         </div>
       ) : categories.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-6 rounded-xl border border-dashed border-zinc-700 bg-zinc-900/40 py-20 text-center">
-          <Inbox className="size-12 text-zinc-600" />
+          <Inbox className="size-12 text-foreground" />
           <div className="flex flex-col gap-1">
-            <p className="text-base font-semibold text-zinc-300">
+            <p className="text-base font-semibold text-foreground">
               No {type} categories yet
             </p>
-            <p className="text-sm text-zinc-500 max-w-xs">
+            <p className="text-sm text-foreground max-w-xs">
               Add your first {type} category to organise your{" "}
               {type === "income" ? "earnings" : "spending"}.
             </p>
@@ -298,7 +298,7 @@ export function CategoriesPage({ type, showHeader = true }: CategoriesPageProps)
                         style={{ backgroundColor: cat.color }}
                       />
                     )}
-                    <p className="truncate text-sm font-medium text-zinc-100">
+                    <p className="truncate text-sm font-medium text-foreground">
                       {cat.name}
                     </p>
                   </div>
@@ -309,7 +309,7 @@ export function CategoriesPage({ type, showHeader = true }: CategoriesPageProps)
                   <Button
                     variant="ghost"
                     size="icon-sm"
-                    className="text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800"
+                    className="text-foreground hover:text-foreground hover:bg-zinc-800"
                     onClick={() => openEdit(cat)}
                     title="Edit"
                   >
@@ -318,7 +318,7 @@ export function CategoriesPage({ type, showHeader = true }: CategoriesPageProps)
                   <Button
                     variant="ghost"
                     size="icon-sm"
-                    className="text-zinc-400 hover:text-red-400 hover:bg-zinc-800"
+                    className="text-foreground hover:text-red-400 hover:bg-zinc-800"
                     onClick={() => openDelete(cat)}
                     title="Delete"
                   >
@@ -333,9 +333,9 @@ export function CategoriesPage({ type, showHeader = true }: CategoriesPageProps)
 
       {/* ── Create / Edit Dialog ──────────────────────────────────────────────── */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="bg-zinc-900 border-zinc-800 text-zinc-100 sm:max-w-md">
+        <DialogContent className="bg-zinc-900 border-zinc-800 text-foreground sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-zinc-100">
+            <DialogTitle className="text-foreground">
               {editingCategory
                 ? `Edit ${typeLabel} Category`
                 : `New ${typeLabel} Category`}
@@ -345,7 +345,7 @@ export function CategoriesPage({ type, showHeader = true }: CategoriesPageProps)
           <div className="flex flex-col gap-4 py-2">
             {/* Name */}
             <div className="flex flex-col gap-1.5">
-              <Label className="text-zinc-300">
+              <Label className="text-foreground">
                 Name <span className="text-red-400">*</span>
               </Label>
               <Input
@@ -356,7 +356,7 @@ export function CategoriesPage({ type, showHeader = true }: CategoriesPageProps)
                 placeholder={
                   type === "income" ? "e.g. Salary" : "e.g. Groceries"
                 }
-                className="border-zinc-700 bg-zinc-800/50 text-zinc-100 placeholder:text-zinc-600"
+                className="border-zinc-700 bg-zinc-800/50 text-foreground placeholder:text-foreground"
                 onKeyDown={(e) => {
                   if (e.key === "Enter") handleSave();
                 }}
@@ -365,7 +365,7 @@ export function CategoriesPage({ type, showHeader = true }: CategoriesPageProps)
 
             {/* Icon */}
             <div className="flex flex-col gap-1.5">
-              <Label className="text-zinc-300">Icon (emoji, optional)</Label>
+              <Label className="text-foreground">Icon (emoji, optional)</Label>
               <Input
                 value={form.icon}
                 onChange={(e) =>
@@ -373,13 +373,13 @@ export function CategoriesPage({ type, showHeader = true }: CategoriesPageProps)
                 }
                 placeholder={type === "income" ? "e.g. 💰" : "e.g. 🛒"}
                 maxLength={8}
-                className="border-zinc-700 bg-zinc-800/50 text-zinc-100 placeholder:text-zinc-600"
+                className="border-zinc-700 bg-zinc-800/50 text-foreground placeholder:text-foreground"
               />
             </div>
 
             {/* Color */}
             <div className="flex flex-col gap-2">
-              <Label className="text-zinc-300">Colour (optional)</Label>
+              <Label className="text-foreground">Colour (optional)</Label>
               {/* Preset swatches */}
               <div className="flex flex-wrap gap-2 py-1">
                 {PRESET_COLORS.map((c) => (
@@ -411,13 +411,13 @@ export function CategoriesPage({ type, showHeader = true }: CategoriesPageProps)
                   }
                   placeholder="#3b82f6"
                   maxLength={7}
-                  className="border-zinc-700 bg-zinc-800/50 text-zinc-100 placeholder:text-zinc-600 font-mono text-sm"
+                  className="border-zinc-700 bg-zinc-800/50 text-foreground placeholder:text-foreground font-mono text-sm"
                 />
                 {form.color && (
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="text-zinc-500 hover:text-zinc-300 shrink-0"
+                    className="text-foreground hover:text-foreground shrink-0"
                     onClick={() => setForm((p) => ({ ...p, color: "" }))}
                   >
                     Clear
@@ -432,7 +432,7 @@ export function CategoriesPage({ type, showHeader = true }: CategoriesPageProps)
               variant="outline"
               onClick={() => setDialogOpen(false)}
               disabled={saving}
-              className="border-zinc-700 bg-transparent text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"
+              className="border-zinc-700 bg-transparent text-foreground hover:bg-zinc-800 hover:text-foreground"
             >
               Cancel
             </Button>
@@ -453,17 +453,17 @@ export function CategoriesPage({ type, showHeader = true }: CategoriesPageProps)
 
       {/* ── Delete Confirmation ───────────────────────────────────────────────── */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent className="bg-zinc-900 border-zinc-800 text-zinc-100 sm:max-w-md">
+        <DialogContent className="bg-zinc-900 border-zinc-800 text-foreground sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-zinc-100">
+            <DialogTitle className="text-foreground">
               Delete Category
             </DialogTitle>
           </DialogHeader>
 
           <div className="py-2">
-            <p className="text-zinc-400 text-sm">
+            <p className="text-foreground text-sm">
               Are you sure you want to delete{" "}
-              <span className="text-zinc-100 font-semibold">
+              <span className="text-foreground font-semibold">
                 {targetCategory?.name}
               </span>
               ? Existing transactions and budgets using this category will be
@@ -476,7 +476,7 @@ export function CategoriesPage({ type, showHeader = true }: CategoriesPageProps)
               variant="outline"
               onClick={() => setDeleteDialogOpen(false)}
               disabled={deleting}
-              className="border-zinc-700 bg-transparent text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"
+              className="border-zinc-700 bg-transparent text-foreground hover:bg-zinc-800 hover:text-foreground"
             >
               Cancel
             </Button>

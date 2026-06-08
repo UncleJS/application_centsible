@@ -28,26 +28,26 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        "hidden h-screen shrink-0 flex-col border-r border-zinc-800/90 bg-zinc-950/95 backdrop-blur transition-[width] duration-300 md:flex",
+        "hidden h-screen shrink-0 flex-col border-r border-zinc-800/90 bg-background/95 backdrop-blur transition-[width] duration-300 md:flex",
         expanded ? "w-64" : "w-[72px]"
       )}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
       <div className="flex items-center gap-3 border-b border-zinc-800/90 px-4 py-4">
-        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-500 text-sm font-black text-zinc-950 shadow-[0_0_24px_rgba(16,185,129,0.35)]">
+        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-500 text-sm font-black text-primary-foreground shadow-[0_0_24px_rgba(16,185,129,0.35)]">
           ¢
         </div>
         {expanded ? (
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold text-zinc-50">Centsible</p>
-            <p className="truncate text-xs text-zinc-500">Personal finance cockpit</p>
+            <p className="truncate text-sm font-semibold text-foreground">Centsible</p>
+            <p className="truncate text-xs text-foreground">Personal finance cockpit</p>
           </div>
         ) : null}
         <Button
           variant="ghost"
           size="icon-sm"
-          className="text-zinc-500 hover:bg-zinc-900 hover:text-zinc-100"
+          className="text-foreground hover:bg-zinc-900 hover:text-foreground"
           onClick={() => setCollapsed((value) => !value)}
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
@@ -60,7 +60,7 @@ export function Sidebar() {
           {navGroups.map((group) => (
             <div key={group.label} className="space-y-2">
               {expanded ? (
-                <div className="flex items-center gap-2 px-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-zinc-500">
+                <div className="flex items-center gap-2 px-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-foreground">
                   <group.icon className="size-3.5" />
                   <span>{group.label}</span>
                 </div>
@@ -80,8 +80,8 @@ export function Sidebar() {
                         "flex items-center rounded-xl border border-transparent px-3 py-2.5 text-sm font-medium transition-colors",
                         expanded ? "gap-3" : "justify-center px-0",
                         isActive
-                          ? "border-emerald-500/20 bg-emerald-500/10 text-zinc-50"
-                          : "text-zinc-400 hover:bg-zinc-900 hover:text-zinc-100"
+                          ? "border-emerald-500/20 bg-emerald-500/10 text-foreground"
+                          : "text-foreground hover:bg-zinc-900 hover:text-foreground"
                       )}
                     >
                       <item.icon className="size-4 shrink-0" />
@@ -102,19 +102,19 @@ export function Sidebar() {
 
       <div className="border-t border-zinc-800/90 p-3">
         <div className={cn("flex items-center rounded-2xl bg-zinc-900/80", expanded ? "gap-3 px-3 py-3" : "justify-center px-0 py-3")}>
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-800 text-sm font-semibold text-zinc-300">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-800 text-sm font-semibold text-foreground">
             {user?.name?.charAt(0).toUpperCase() || "?"}
           </div>
           {expanded ? (
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-zinc-100">{user?.name}</p>
-              <p className="truncate text-xs text-zinc-500">{user?.email}</p>
+              <p className="truncate text-sm font-medium text-foreground">{user?.name}</p>
+              <p className="truncate text-xs text-foreground">{user?.email}</p>
             </div>
           ) : null}
           <Button
             variant="ghost"
             size="icon-sm"
-            className="text-zinc-500 hover:bg-zinc-800 hover:text-zinc-100"
+            className="text-foreground hover:bg-zinc-800 hover:text-foreground"
             onClick={logout}
             title="Log out"
             aria-label="Log out"

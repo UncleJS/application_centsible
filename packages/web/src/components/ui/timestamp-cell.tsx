@@ -7,7 +7,7 @@ interface TimestampCellProps {
 
 export function TimestampCell({ value, className }: TimestampCellProps) {
   return (
-    <span className={className ?? "font-mono text-xs text-zinc-500"}>
+    <span className={className ?? "font-mono text-xs text-foreground"}>
       {formatTimestamp(value)}
     </span>
   );

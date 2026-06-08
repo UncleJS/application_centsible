@@ -118,7 +118,7 @@ export const categoryRoutes = new Elysia({
       const [updated] = await db
         .select()
         .from(schema.categories)
-        .where(eq(schema.categories.id, id));
+        .where(and(eq(schema.categories.id, id), eq(schema.categories.userId, user.id)));
 
       return { data: updated };
     },
@@ -195,7 +195,7 @@ export const categoryRoutes = new Elysia({
     const [restored] = await db
       .select()
       .from(schema.categories)
-      .where(eq(schema.categories.id, id));
+      .where(and(eq(schema.categories.id, id), eq(schema.categories.userId, user.id)));
 
     return { data: restored };
   }, {

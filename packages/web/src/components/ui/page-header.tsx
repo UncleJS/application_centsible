@@ -31,10 +31,10 @@ export function PageHeader({
           </p>
         ) : null}
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight text-zinc-50 sm:text-3xl">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
             {title}
           </h1>
-          {description ? <p className="max-w-2xl text-sm text-zinc-400">{description}</p> : null}
+          {description ? <p className="max-w-2xl text-sm text-foreground">{description}</p> : null}
         </div>
       </div>
       {action ? <div className="shrink-0">{action}</div> : null}

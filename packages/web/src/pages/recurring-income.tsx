@@ -151,16 +151,16 @@ function RecurringIncomeDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="border-zinc-800 bg-zinc-900 text-zinc-100 sm:max-w-md">
+      <DialogContent className="border-zinc-800 bg-zinc-900 text-foreground sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-zinc-100">
+          <DialogTitle className="text-foreground">
             {editing ? "Edit Income Source" : "Add Income Source"}
           </DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
           <div className="flex flex-col gap-2">
-            <Label htmlFor="ri-name" className="text-zinc-300">
+            <Label htmlFor="ri-name" className="text-foreground">
               Name
             </Label>
             <Input
@@ -168,27 +168,27 @@ function RecurringIncomeDialog({
               placeholder="Salary, freelance, dividends"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="border-zinc-700 bg-zinc-800/50 text-zinc-100 placeholder:text-zinc-600"
+              className="border-zinc-700 bg-zinc-800/50 text-foreground placeholder:text-foreground"
               required
             />
           </div>
 
           <div className="flex flex-col gap-2">
-            <Label htmlFor="ri-description" className="text-zinc-300">
-              Description <span className="font-normal text-zinc-600">(optional)</span>
+            <Label htmlFor="ri-description" className="text-foreground">
+              Description <span className="font-normal text-foreground">(optional)</span>
             </Label>
             <Input
               id="ri-description"
               placeholder="Additional notes"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="border-zinc-700 bg-zinc-800/50 text-zinc-100 placeholder:text-zinc-600"
+              className="border-zinc-700 bg-zinc-800/50 text-foreground placeholder:text-foreground"
             />
           </div>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_120px]">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="ri-amount" className="text-zinc-300">
+              <Label htmlFor="ri-amount" className="text-foreground">
                 Amount
               </Label>
               <Input
@@ -200,22 +200,22 @@ function RecurringIncomeDialog({
                 placeholder="0.00"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                className="border-zinc-700 bg-zinc-800/50 font-mono text-zinc-100 placeholder:text-zinc-600"
+                className="border-zinc-700 bg-zinc-800/50 font-mono text-foreground placeholder:text-foreground"
                 required
               />
             </div>
 
             <div className="flex flex-col gap-2">
-              <Label htmlFor="ri-currency" className="text-zinc-300">
+              <Label htmlFor="ri-currency" className="text-foreground">
                 Currency
               </Label>
               <Select value={riCurrency} onValueChange={setRiCurrency}>
-                <SelectTrigger id="ri-currency" className="border-zinc-700 bg-zinc-800/50 text-zinc-100">
+                <SelectTrigger id="ri-currency" className="border-zinc-700 bg-zinc-800/50 text-foreground">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="border-zinc-700 bg-zinc-900 text-zinc-100">
+                <SelectContent className="border-zinc-700 bg-zinc-900 text-foreground">
                   {SUPPORTED_CURRENCIES.map((item) => (
-                    <SelectItem key={item} value={item} className="focus:bg-zinc-800 focus:text-zinc-100">
+                    <SelectItem key={item} value={item} className="focus:bg-zinc-800 focus:text-foreground">
                       {item}
                     </SelectItem>
                   ))}
@@ -225,16 +225,16 @@ function RecurringIncomeDialog({
           </div>
 
           <div className="flex flex-col gap-2">
-            <Label htmlFor="ri-cycle" className="text-zinc-300">
+            <Label htmlFor="ri-cycle" className="text-foreground">
               Billing cycle
             </Label>
             <Select value={billingCycle} onValueChange={(v) => setBillingCycle(v as BillingCycle)}>
-              <SelectTrigger id="ri-cycle" className="border-zinc-700 bg-zinc-800/50 text-zinc-100">
+              <SelectTrigger id="ri-cycle" className="border-zinc-700 bg-zinc-800/50 text-foreground">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="border-zinc-700 bg-zinc-900 text-zinc-100">
+              <SelectContent className="border-zinc-700 bg-zinc-900 text-foreground">
                 {BILLING_CYCLES.map((cycle) => (
-                  <SelectItem key={cycle} value={cycle} className="focus:bg-zinc-800 focus:text-zinc-100">
+                  <SelectItem key={cycle} value={cycle} className="focus:bg-zinc-800 focus:text-foreground">
                     {BILLING_CYCLE_LABELS[cycle]}
                   </SelectItem>
                 ))}
@@ -243,22 +243,22 @@ function RecurringIncomeDialog({
           </div>
 
           <div className="flex flex-col gap-2">
-            <Label htmlFor="ri-category" className="text-zinc-300">
-              Category <span className="font-normal text-zinc-600">(optional)</span>
+            <Label htmlFor="ri-category" className="text-foreground">
+              Category <span className="font-normal text-foreground">(optional)</span>
             </Label>
             <Select value={categoryId} onValueChange={setCategoryId}>
-              <SelectTrigger id="ri-category" className="border-zinc-700 bg-zinc-800/50 text-zinc-100">
+              <SelectTrigger id="ri-category" className="border-zinc-700 bg-zinc-800/50 text-foreground">
                 <SelectValue placeholder="None" />
               </SelectTrigger>
-              <SelectContent className="border-zinc-700 bg-zinc-900 text-zinc-100">
-                <SelectItem value="none" className="focus:bg-zinc-800 focus:text-zinc-100">
+              <SelectContent className="border-zinc-700 bg-zinc-900 text-foreground">
+                <SelectItem value="none" className="focus:bg-zinc-800 focus:text-foreground">
                   None
                 </SelectItem>
                 {incomeCategories.map((category) => (
                   <SelectItem
                     key={category.id}
                     value={String(category.id)}
-                    className="focus:bg-zinc-800 focus:text-zinc-100"
+                    className="focus:bg-zinc-800 focus:text-foreground"
                   >
                     {category.name}
                   </SelectItem>
@@ -269,8 +269,8 @@ function RecurringIncomeDialog({
 
           <div className="flex items-center justify-between rounded-xl border border-zinc-800 bg-zinc-800/30 px-4 py-3">
             <div>
-              <p className="text-sm font-medium text-zinc-200">Auto renew</p>
-              <p className="text-xs text-zinc-500">Continue this source each cycle for planning.</p>
+              <p className="text-sm font-medium text-foreground">Auto renew</p>
+              <p className="text-xs text-foreground">Continue this source each cycle for planning.</p>
             </div>
             <button
               type="button"
@@ -293,7 +293,7 @@ function RecurringIncomeDialog({
             <Button
               type="button"
               variant="outline"
-              className="border-zinc-700 bg-transparent text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"
+              className="border-zinc-700 bg-transparent text-foreground hover:bg-zinc-800 hover:text-foreground"
               onClick={() => onOpenChange(false)}
               disabled={submitting}
             >
@@ -339,8 +339,8 @@ function RecurringIncomeCard({
             {item.categoryIcon ?? "↗"}
           </div>
           <div className="min-w-0 flex-1">
-            <CardTitle className="truncate text-base text-zinc-100">{item.name}</CardTitle>
-            <CardDescription className="mt-1 text-xs text-zinc-500">
+            <CardTitle className="truncate text-base text-foreground">{item.name}</CardTitle>
+            <CardDescription className="mt-1 text-xs text-foreground">
               {item.categoryName ?? "No category"} · {BILLING_CYCLE_LABELS[item.billingCycle] ?? item.billingCycle}
             </CardDescription>
           </div>
@@ -349,7 +349,7 @@ function RecurringIncomeCard({
               <Button
                 variant="ghost"
                 size="icon-sm"
-                className="text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
+                className="text-foreground hover:bg-zinc-800 hover:text-foreground"
                 onClick={() => onEdit(item)}
                 aria-label={`Edit ${item.name}`}
               >
@@ -358,7 +358,7 @@ function RecurringIncomeCard({
               <Button
                 variant="ghost"
                 size="icon-sm"
-                className="text-zinc-400 hover:bg-zinc-800 hover:text-red-400"
+                className="text-foreground hover:bg-zinc-800 hover:text-red-400"
                 onClick={() => onDelete(item.id)}
                 disabled={isDeleting}
                 aria-label={`Delete ${item.name}`}
@@ -381,16 +381,16 @@ function RecurringIncomeCard({
         </div>
 
         <div className="space-y-1">
-          <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">Normalised monthly</p>
-          <p className="text-xl font-semibold text-zinc-50">
+          <p className="text-xs uppercase tracking-[0.2em] text-foreground">Normalised monthly</p>
+          <p className="text-xl font-semibold text-foreground">
             {monthlyAmount !== null ? formatCurrency(monthlyAmount, currency) : "—"}
           </p>
         </div>
 
-        {item.description ? <p className="text-sm text-zinc-400">{item.description}</p> : null}
+        {item.description ? <p className="text-sm text-foreground">{item.description}</p> : null}
 
         <div className="border-t border-zinc-800 pt-3">
-          <p className="mb-1 text-[11px] uppercase tracking-[0.18em] text-zinc-600">Last updated</p>
+          <p className="mb-1 text-[11px] uppercase tracking-[0.18em] text-foreground">Last updated</p>
           <TimestampCell value={item.updatedAt} />
         </div>
       </CardContent>

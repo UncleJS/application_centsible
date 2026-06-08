@@ -13,7 +13,7 @@ export function RequireAuth() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 md:flex">
+    <div className="min-h-screen bg-background md:flex">
       <Sidebar />
       <div className="flex min-h-screen flex-1 flex-col">
         <MobileNav />

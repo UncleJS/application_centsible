@@ -51,9 +51,19 @@ RUN cd packages/web && bun run build
 # ── Stage 3: Production runtime (Caddy static server) ────────
 FROM docker.io/caddy:2-alpine AS runtime
 
+# Run Caddy as a non-root user (consistent with the API container, UID 1001).
+# Point Caddy's storage at a writable tmp path so it never needs to write to the
+# root-owned /data and /config volumes the base image declares. The Caddyfile
+# uses `admin off` + `auto_https off` and serves on the unprivileged port 10300,
+# so no root capabilities are required at runtime.
+RUN addgroup -S centsible && adduser -S -G centsible -u 1001 centsible
+ENV XDG_DATA_HOME=/tmp/caddy-data XDG_CONFIG_HOME=/tmp/caddy-config
+
 # Static SPA assets — Caddy's default Caddyfile serves /srv with SPA fallback.
 COPY --from=build /app/packages/web/dist /srv
 COPY infra/web/Caddyfile /etc/caddy/Caddyfile
+
+USER centsible
 
 EXPOSE 10300
 

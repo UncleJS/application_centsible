@@ -73,19 +73,19 @@ export default function SettingsPage() {
       <div className="flex items-center gap-3">
         <Settings className="size-6 text-emerald-400" />
         <div>
-          <h1 className="text-2xl font-bold text-zinc-100">Settings</h1>
-          <p className="text-sm text-zinc-500">Manage your account preferences.</p>
+          <h1 className="text-2xl font-bold text-foreground">Settings</h1>
+          <p className="text-sm text-foreground">Manage your account preferences.</p>
         </div>
       </div>
 
       {/* Profile Card */}
       <Card className="bg-zinc-900 border-zinc-800">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-zinc-100 text-base">
-            <User className="size-4 text-zinc-400" />
+          <CardTitle className="flex items-center gap-2 text-foreground text-base">
+            <User className="size-4 text-foreground" />
             Profile
           </CardTitle>
-          <CardDescription className="text-zinc-500">
+          <CardDescription className="text-foreground">
             Update your display name and default currency.
           </CardDescription>
         </CardHeader>
@@ -94,7 +94,7 @@ export default function SettingsPage() {
           <form onSubmit={handleSave} className="flex flex-col gap-6">
             {/* Name */}
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="settings-name" className="text-zinc-300">
+              <Label htmlFor="settings-name" className="text-foreground">
                 Full name
               </Label>
               <Input
@@ -105,23 +105,23 @@ export default function SettingsPage() {
                 onChange={(e) => setName(e.target.value)}
                 disabled={saving}
                 maxLength={100}
-                className="border-zinc-700 bg-zinc-800/50 text-zinc-100 placeholder:text-zinc-600 focus-visible:ring-emerald-500 focus-visible:border-emerald-500"
+                className="border-zinc-700 bg-zinc-800/50 text-foreground placeholder:text-foreground focus-visible:ring-emerald-500 focus-visible:border-emerald-500"
               />
             </div>
 
             {/* Email — read-only */}
             <div className="flex flex-col gap-1.5">
-              <Label className="text-zinc-300">Email address</Label>
-              <div className="flex h-9 items-center rounded-md border border-zinc-700 bg-zinc-800/30 px-3 text-sm text-zinc-500 cursor-default select-none">
+              <Label className="text-foreground">Email address</Label>
+              <div className="flex h-9 items-center rounded-md border border-zinc-700 bg-zinc-800/30 px-3 text-sm text-foreground cursor-default select-none">
                 {user?.email ?? "—"}
               </div>
-              <p className="text-xs text-zinc-600">Email cannot be changed.</p>
+              <p className="text-xs text-foreground">Email cannot be changed.</p>
             </div>
 
             {/* Default Currency */}
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="settings-currency-trigger" className="text-zinc-300 flex items-center gap-1.5">
-                <Coins className="size-3.5 text-zinc-500" />
+              <Label htmlFor="settings-currency-trigger" className="text-foreground flex items-center gap-1.5">
+                <Coins className="size-3.5 text-foreground" />
                 Default currency
               </Label>
               <Select
@@ -131,23 +131,23 @@ export default function SettingsPage() {
               >
                 <SelectTrigger
                   id="settings-currency-trigger"
-                  className="border-zinc-700 bg-zinc-800/50 text-zinc-100 focus:ring-emerald-500 focus:border-emerald-500 w-full font-mono"
+                  className="border-zinc-700 bg-zinc-800/50 text-foreground focus:ring-emerald-500 focus:border-emerald-500 w-full font-mono"
                 >
                   <SelectValue placeholder="Select currency" />
                 </SelectTrigger>
-                <SelectContent className="bg-zinc-900 border-zinc-700 text-zinc-100 max-h-72">
+                <SelectContent className="bg-zinc-900 border-zinc-700 text-foreground max-h-72">
                   {SUPPORTED_CURRENCIES.map((code) => (
                     <SelectItem
                       key={code}
                       value={code}
-                      className="font-mono focus:bg-zinc-800 focus:text-zinc-100"
+                      className="font-mono focus:bg-zinc-800 focus:text-foreground"
                     >
                       {code}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-zinc-600">
+              <p className="text-xs text-foreground">
                 Used for all budget, savings, and report displays.
               </p>
             </div>

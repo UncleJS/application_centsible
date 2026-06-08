@@ -207,10 +207,10 @@ function MonthCard({
       <CardHeader>
         <div className="flex items-start justify-between gap-2">
           <div>
-            <CardTitle className="text-zinc-100 text-base">
+            <CardTitle className="text-foreground text-base">
               {getMonthName(data.month)} {data.year}
             </CardTitle>
-            <CardDescription className="text-zinc-400 text-xs mt-0.5">
+            <CardDescription className="text-foreground text-xs mt-0.5">
               {sortedItems.length} item{sortedItems.length !== 1 ? "s" : ""}
             </CardDescription>
           </div>
@@ -232,35 +232,35 @@ function MonthCard({
 
         <div className="space-y-2">
           <div className="flex items-center justify-between text-sm">
-            <span className="flex items-center gap-1.5 text-zinc-300">
+            <span className="flex items-center gap-1.5 text-foreground">
               <span className="inline-block w-2.5 h-2.5 rounded-full bg-blue-500" />
               Subscriptions
             </span>
-            <span className="text-zinc-200 tabular-nums font-mono">
+            <span className="text-foreground tabular-nums font-mono">
               {formatCurrency(data.subscriptionCosts, currency)}
             </span>
           </div>
           <div className="flex items-center justify-between text-sm">
-            <span className="flex items-center gap-1.5 text-zinc-300">
+            <span className="flex items-center gap-1.5 text-foreground">
               <span className="inline-block w-2.5 h-2.5 rounded-full bg-red-500" />
               Expenses
             </span>
-            <span className="text-zinc-200 tabular-nums font-mono">
+            <span className="text-foreground tabular-nums font-mono">
               {formatCurrency(data.projectedExpenses, currency)}
             </span>
           </div>
           <div className="flex items-center justify-between text-sm">
-            <span className="flex items-center gap-1.5 text-zinc-300">
+            <span className="flex items-center gap-1.5 text-foreground">
               <span className="inline-block w-2.5 h-2.5 rounded-full bg-amber-500" />
               Savings
             </span>
-            <span className="text-zinc-200 tabular-nums font-mono">
+            <span className="text-foreground tabular-nums font-mono">
               {formatCurrency(data.savingsContributions, currency)}
             </span>
           </div>
           {income > 0 && (
             <div className="flex items-center justify-between text-sm">
-              <span className="flex items-center gap-1.5 text-zinc-300">
+              <span className="flex items-center gap-1.5 text-foreground">
                 <span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500" />
                 Income
               </span>
@@ -277,7 +277,7 @@ function MonthCard({
           <Separator className="bg-zinc-800 mb-0" />
           <button
             onClick={() => setExpanded((v) => !v)}
-            className="w-full flex items-center justify-between px-6 py-3 text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40 transition-colors rounded-b-xl"
+            className="w-full flex items-center justify-between px-6 py-3 text-sm text-foreground hover:text-foreground hover:bg-zinc-800/40 transition-colors rounded-b-xl"
           >
             <span>{expanded ? "Hide" : "Show"} items</span>
             {expanded ? (
@@ -295,16 +295,16 @@ function MonthCard({
                   className="flex items-center justify-between py-1.5 border-b border-zinc-800/60 last:border-0 gap-2"
                 >
                   <div className="flex flex-col min-w-0">
-                    <span className="text-sm text-zinc-200 truncate">
+                    <span className="text-sm text-foreground truncate">
                       {item.name}
                     </span>
-                    <span className="text-xs text-zinc-500 font-mono">
+                    <span className="text-xs text-foreground font-mono">
                       {formatDate(item.date)}
                     </span>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <TypeBadge type={item.type} />
-                    <span className="text-sm text-zinc-200 tabular-nums font-mono">
+                    <span className="text-sm text-foreground tabular-nums font-mono">
                       {formatCurrency(item.amount, item.currency)}
                     </span>
                   </div>
@@ -380,27 +380,27 @@ export default function ForecastPage() {
         title="Forward Forecast"
         description="Projected income and costs based on subscriptions, budgets, recurring income, and savings goals."
         action={<div className="flex items-center gap-3">
-          <Label className="text-zinc-300 text-sm shrink-0">
+          <Label className="text-foreground text-sm shrink-0">
             Horizon
           </Label>
           <Select
             value={horizon}
             onValueChange={(val) => setHorizon(val)}
           >
-            <SelectTrigger className="w-36 border-zinc-700 bg-zinc-800/50 text-zinc-100">
+            <SelectTrigger className="w-36 border-zinc-700 bg-zinc-800/50 text-foreground">
               <SelectValue placeholder="Select months" />
             </SelectTrigger>
-            <SelectContent className="bg-zinc-900 border-zinc-700 text-zinc-100">
-              <SelectItem value="3" className="focus:bg-zinc-800 focus:text-zinc-100">3 months</SelectItem>
-              <SelectItem value="6" className="focus:bg-zinc-800 focus:text-zinc-100">6 months</SelectItem>
-              <SelectItem value="12" className="focus:bg-zinc-800 focus:text-zinc-100">12 months</SelectItem>
+            <SelectContent className="bg-zinc-900 border-zinc-700 text-foreground">
+              <SelectItem value="3" className="focus:bg-zinc-800 focus:text-foreground">3 months</SelectItem>
+              <SelectItem value="6" className="focus:bg-zinc-800 focus:text-foreground">6 months</SelectItem>
+              <SelectItem value="12" className="focus:bg-zinc-800 focus:text-foreground">12 months</SelectItem>
             </SelectContent>
           </Select>
 
           <Button
             size="icon-sm"
             variant="outline"
-            className="border-zinc-700 bg-zinc-800/50 text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100"
+            className="border-zinc-700 bg-zinc-800/50 text-foreground hover:bg-zinc-700 hover:text-foreground"
             onClick={() => loadForecast(parseInt(horizon, 10))}
             disabled={loading}
             title="Refresh forecast"
@@ -464,7 +464,7 @@ export default function ForecastPage() {
       {/* Monthly Grid */}
       {!isEmpty && (
         <div>
-          <h2 className="text-base font-semibold text-zinc-200 mb-4">
+          <h2 className="text-base font-semibold text-foreground mb-4">
             Monthly Breakdown
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -488,12 +488,12 @@ export default function ForecastPage() {
         <div>
           <button
             onClick={() => setShowAllItems((v) => !v)}
-            className="w-full flex items-center justify-between px-5 py-3.5 bg-zinc-900 border border-zinc-800 rounded-xl text-sm text-zinc-300 hover:text-zinc-100 hover:bg-zinc-800/60 transition-colors"
+            className="w-full flex items-center justify-between px-5 py-3.5 bg-zinc-900 border border-zinc-800 rounded-xl text-sm text-foreground hover:text-foreground hover:bg-zinc-800/60 transition-colors"
           >
             <span className="flex items-center gap-2 font-medium">
-              <TableIcon className="size-4 text-zinc-500" />
+              <TableIcon className="size-4 text-foreground" />
               All Forecast Items
-              <span className="ml-1 text-xs text-zinc-500 font-normal">
+              <span className="ml-1 text-xs text-foreground font-normal">
                 ({allItems.length})
               </span>
             </span>
@@ -509,19 +509,19 @@ export default function ForecastPage() {
               <Table>
                 <TableHeader>
                   <TableRow className="border-zinc-800 hover:bg-transparent">
-                    <TableHead className="text-zinc-400 font-medium w-32 pl-6">
+                    <TableHead className="text-foreground font-medium w-32 pl-6">
                       Date
                     </TableHead>
-                    <TableHead className="text-zinc-400 font-medium">
+                    <TableHead className="text-foreground font-medium">
                       Name
                     </TableHead>
-                    <TableHead className="text-zinc-400 font-medium w-36 hidden sm:table-cell">
+                    <TableHead className="text-foreground font-medium w-36 hidden sm:table-cell">
                       Month
                     </TableHead>
-                    <TableHead className="text-zinc-400 font-medium w-36">
+                    <TableHead className="text-foreground font-medium w-36">
                       Type
                     </TableHead>
-                    <TableHead className="text-zinc-400 font-medium text-right w-32 pr-6">
+                    <TableHead className="text-foreground font-medium text-right w-32 pr-6">
                       Amount
                     </TableHead>
                   </TableRow>
@@ -532,19 +532,19 @@ export default function ForecastPage() {
                       key={`all-${item.sourceId}-${idx}`}
                       className="border-zinc-800 hover:bg-zinc-800/40 transition-colors"
                     >
-                      <TableCell className="text-zinc-400 text-sm tabular-nums font-mono pl-6">
+                      <TableCell className="text-foreground text-sm tabular-nums font-mono pl-6">
                         {formatDate(item.date)}
                       </TableCell>
-                      <TableCell className="text-zinc-200 text-sm font-medium">
+                      <TableCell className="text-foreground text-sm font-medium">
                         {item.name}
                       </TableCell>
-                      <TableCell className="text-zinc-500 text-sm hidden sm:table-cell">
+                      <TableCell className="text-foreground text-sm hidden sm:table-cell">
                         {item.monthLabel}
                       </TableCell>
                       <TableCell>
                         <TypeBadge type={item.type} />
                       </TableCell>
-                      <TableCell className="text-right text-zinc-200 text-sm tabular-nums font-mono pr-6">
+                      <TableCell className="text-right text-foreground text-sm tabular-nums font-mono pr-6">
                         {formatCurrency(item.amount, item.currency)}
                       </TableCell>
                     </TableRow>

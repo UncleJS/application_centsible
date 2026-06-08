@@ -259,7 +259,7 @@ export const transactionRoutes = new Elysia({
       const [updated] = await db
         .select()
         .from(schema.transactions)
-        .where(eq(schema.transactions.id, id));
+        .where(and(eq(schema.transactions.id, id), eq(schema.transactions.userId, user.id)));
 
       return { data: updated };
     },

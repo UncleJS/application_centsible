@@ -63,14 +63,14 @@ export default function RegisterPage() {
   }
 
   return (
-    <main className="min-h-screen bg-zinc-950 flex items-center justify-center px-4 py-12">
+    <main className="min-h-screen bg-background flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-md space-y-6">
         {/* Branding */}
         <div className="flex flex-col items-center gap-2">
           <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-emerald-600 text-2xl font-bold text-white select-none">
             ¢
           </div>
-          <span className="text-zinc-100 font-semibold text-2xl tracking-tight">
+          <span className="text-foreground font-semibold text-2xl tracking-tight">
             Centsible
           </span>
         </div>
@@ -78,10 +78,10 @@ export default function RegisterPage() {
         {/* Card */}
         <Card className="bg-zinc-900 border-zinc-800 shadow-2xl">
           <CardHeader className="pb-4">
-            <CardTitle className="text-zinc-100 text-xl">
+            <CardTitle className="text-foreground text-xl">
               Create an account
             </CardTitle>
-            <CardDescription className="text-zinc-400">
+            <CardDescription className="text-foreground">
               Start tracking your finances today.
             </CardDescription>
           </CardHeader>
@@ -90,7 +90,7 @@ export default function RegisterPage() {
             <form onSubmit={handleSubmit} noValidate className="space-y-5">
               {/* Name */}
               <div className="space-y-1.5">
-                <Label htmlFor="name" className="text-zinc-300 text-sm">
+                <Label htmlFor="name" className="text-foreground text-sm">
                   Full name
                 </Label>
                 <Input
@@ -101,7 +101,7 @@ export default function RegisterPage() {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   disabled={isLoading}
-                  className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500 focus-visible:ring-emerald-500 focus-visible:border-emerald-500"
+                  className="bg-zinc-800 border-zinc-700 text-foreground placeholder:text-foreground focus-visible:ring-emerald-500 focus-visible:border-emerald-500"
                 />
                 {fieldErrors.name && (
                   <p className="text-red-400 text-xs">{fieldErrors.name}</p>
@@ -110,7 +110,7 @@ export default function RegisterPage() {
 
               {/* Email */}
               <div className="space-y-1.5">
-                <Label htmlFor="email" className="text-zinc-300 text-sm">
+                <Label htmlFor="email" className="text-foreground text-sm">
                   Email address
                 </Label>
                 <Input
@@ -121,7 +121,7 @@ export default function RegisterPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   disabled={isLoading}
-                  className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500 focus-visible:ring-emerald-500 focus-visible:border-emerald-500"
+                  className="bg-zinc-800 border-zinc-700 text-foreground placeholder:text-foreground focus-visible:ring-emerald-500 focus-visible:border-emerald-500"
                 />
                 {fieldErrors.email && (
                   <p className="text-red-400 text-xs">{fieldErrors.email}</p>
@@ -130,7 +130,7 @@ export default function RegisterPage() {
 
               {/* Password */}
               <div className="space-y-1.5">
-                <Label htmlFor="password" className="text-zinc-300 text-sm">
+                <Label htmlFor="password" className="text-foreground text-sm">
                   Password
                 </Label>
                 <Input
@@ -141,7 +141,7 @@ export default function RegisterPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={isLoading}
-                  className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500 focus-visible:ring-emerald-500 focus-visible:border-emerald-500"
+                  className="bg-zinc-800 border-zinc-700 text-foreground placeholder:text-foreground focus-visible:ring-emerald-500 focus-visible:border-emerald-500"
                 />
                 {fieldErrors.password && (
                   <p className="text-red-400 text-xs">{fieldErrors.password}</p>
@@ -152,7 +152,7 @@ export default function RegisterPage() {
               <div className="space-y-1.5">
                 <Label
                   htmlFor="confirmPassword"
-                  className="text-zinc-300 text-sm"
+                  className="text-foreground text-sm"
                 >
                   Confirm password
                 </Label>
@@ -164,7 +164,7 @@ export default function RegisterPage() {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   disabled={isLoading}
-                  className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500 focus-visible:ring-emerald-500 focus-visible:border-emerald-500"
+                  className="bg-zinc-800 border-zinc-700 text-foreground placeholder:text-foreground focus-visible:ring-emerald-500 focus-visible:border-emerald-500"
                 />
                 {fieldErrors.confirmPassword && (
                   <p className="text-red-400 text-xs">
@@ -177,7 +177,7 @@ export default function RegisterPage() {
               <div className="space-y-1.5">
                 <Label
                   htmlFor="currency-trigger"
-                  className="text-zinc-300 text-sm"
+                  className="text-foreground text-sm"
                 >
                   Default currency
                 </Label>
@@ -188,16 +188,16 @@ export default function RegisterPage() {
                 >
                   <SelectTrigger
                     id="currency-trigger"
-                    className="bg-zinc-800 border-zinc-700 text-zinc-100 focus:ring-emerald-500 focus:border-emerald-500 w-full"
+                    className="bg-zinc-800 border-zinc-700 text-foreground focus:ring-emerald-500 focus:border-emerald-500 w-full"
                   >
                     <SelectValue placeholder="Select currency" />
                   </SelectTrigger>
-                  <SelectContent className="bg-zinc-800 border-zinc-700 text-zinc-100 max-h-60">
+                  <SelectContent className="bg-zinc-800 border-zinc-700 text-foreground max-h-60">
                     {SUPPORTED_CURRENCIES.map((code) => (
                       <SelectItem
                         key={code}
                         value={code}
-                        className="text-zinc-100 focus:bg-zinc-700 focus:text-zinc-100"
+                        className="text-foreground focus:bg-zinc-700 focus:text-foreground"
                       >
                         {code}
                       </SelectItem>
@@ -224,7 +224,7 @@ export default function RegisterPage() {
             </form>
 
             {/* Login link */}
-            <p className="mt-5 text-center text-sm text-zinc-500">
+            <p className="mt-5 text-center text-sm text-foreground">
               Already have an account?{" "}
               <Link
                 to="/login"

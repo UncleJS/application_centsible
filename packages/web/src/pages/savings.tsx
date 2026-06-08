@@ -120,7 +120,7 @@ function DaysBadge({ targetDate }: { targetDate: string }) {
 
   if (days < 0) {
     return (
-      <Badge className="bg-zinc-700 text-zinc-400 border-zinc-600 text-xs">
+      <Badge className="bg-zinc-700 text-foreground border-zinc-600 text-xs">
         Overdue
       </Badge>
     );
@@ -446,15 +446,15 @@ export default function SavingsPage() {
                         </div>
                       ) : (
                         <div className="p-2 rounded-md bg-zinc-800 shrink-0">
-                          <Target className="size-4 text-zinc-500" />
+                          <Target className="size-4 text-foreground" />
                         </div>
                       )}
                       <div className="min-w-0">
-                        <CardTitle className="text-zinc-100 text-base leading-tight truncate">
+                        <CardTitle className="text-foreground text-base leading-tight truncate">
                           {goal.name}
                         </CardTitle>
                         {goal.description && (
-                          <CardDescription className="text-zinc-500 text-xs mt-0.5 line-clamp-2">
+                          <CardDescription className="text-foreground text-xs mt-0.5 line-clamp-2">
                             {goal.description}
                           </CardDescription>
                         )}
@@ -464,7 +464,7 @@ export default function SavingsPage() {
                       <Button
                         variant="ghost"
                         size="icon-sm"
-                        className="text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800"
+                        className="text-foreground hover:text-foreground hover:bg-zinc-800"
                         onClick={() => openEditGoal(goal)}
                         title="Edit goal"
                       >
@@ -473,7 +473,7 @@ export default function SavingsPage() {
                       <Button
                         variant="ghost"
                         size="icon-sm"
-                        className="text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800"
+                        className="text-foreground hover:text-foreground hover:bg-zinc-800"
                         onClick={() => openContribute(goal)}
                         title="Add contribution"
                       >
@@ -482,7 +482,7 @@ export default function SavingsPage() {
                       <Button
                         variant="ghost"
                         size="icon-sm"
-                        className="text-zinc-400 hover:text-red-400 hover:bg-zinc-800"
+                        className="text-foreground hover:text-red-400 hover:bg-zinc-800"
                         onClick={() => openDelete(goal)}
                         title="Delete goal"
                       >
@@ -499,10 +499,10 @@ export default function SavingsPage() {
                   {/* Amounts */}
                   <div className="flex items-end justify-between gap-2">
                     <div>
-                      <p className="text-sm font-mono text-zinc-100 font-semibold">
+                      <p className="text-sm font-mono text-foreground font-semibold">
                         {formatCurrency(current, goal.currency)}
                       </p>
-                      <p className="text-xs text-zinc-500 font-mono">
+                      <p className="text-xs text-foreground font-mono">
                         of {formatCurrency(target, goal.currency)}
                       </p>
                     </div>
@@ -521,7 +521,7 @@ export default function SavingsPage() {
 
                   {/* Date + days */}
                   <div className="flex items-center justify-between gap-2 pt-1">
-                    <span className="text-xs text-zinc-500 font-mono">
+                    <span className="text-xs text-foreground font-mono">
                       {formatDate(goal.targetDate)}
                     </span>
                     <DaysBadge targetDate={goal.targetDate} />
@@ -533,14 +533,14 @@ export default function SavingsPage() {
                       Goal reached!
                     </p>
                   ) : monthlyNeeded !== null ? (
-                    <p className="text-xs text-zinc-500">
-                      <span className="text-zinc-300 font-mono font-medium">
+                    <p className="text-xs text-foreground">
+                      <span className="text-foreground font-mono font-medium">
                         {formatCurrency(monthlyNeeded, goal.currency)}
                       </span>
                       {" "}/ month needed
                     </p>
                   ) : (
-                    <p className="text-xs text-zinc-600">Overdue — no monthly target</p>
+                    <p className="text-xs text-foreground">Overdue — no monthly target</p>
                   )}
                 </CardContent>
               </Card>
@@ -551,9 +551,9 @@ export default function SavingsPage() {
 
       {/* ── Create / Edit Goal Dialog ───────────────────────────────────────── */}
       <Dialog open={goalDialogOpen} onOpenChange={setGoalDialogOpen}>
-        <DialogContent className="bg-zinc-900 border-zinc-800 text-zinc-100 sm:max-w-md">
+        <DialogContent className="bg-zinc-900 border-zinc-800 text-foreground sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-zinc-100">
+            <DialogTitle className="text-foreground">
               {editingGoal ? "Edit Savings Goal" : "New Savings Goal"}
             </DialogTitle>
           </DialogHeader>
@@ -561,32 +561,32 @@ export default function SavingsPage() {
           <div className="flex flex-col gap-4 py-2">
             {/* Name */}
             <div className="flex flex-col gap-1.5">
-              <Label className="text-zinc-300">Name <span className="text-red-400">*</span></Label>
+              <Label className="text-foreground">Name <span className="text-red-400">*</span></Label>
               <Input
                 value={goalForm.name}
                 onChange={(e) => setGoalForm((p) => ({ ...p, name: e.target.value }))}
                 placeholder="e.g. Emergency Fund"
-                className="border-zinc-700 bg-zinc-800/50 text-zinc-100 placeholder:text-zinc-600"
+                className="border-zinc-700 bg-zinc-800/50 text-foreground placeholder:text-foreground"
               />
             </div>
 
             {/* Description */}
             <div className="flex flex-col gap-1.5">
-              <Label className="text-zinc-300">Description</Label>
+              <Label className="text-foreground">Description</Label>
               <Input
                 value={goalForm.description}
                 onChange={(e) =>
                   setGoalForm((p) => ({ ...p, description: e.target.value }))
                 }
                 placeholder="Optional description"
-                className="border-zinc-700 bg-zinc-800/50 text-zinc-100 placeholder:text-zinc-600"
+                className="border-zinc-700 bg-zinc-800/50 text-foreground placeholder:text-foreground"
               />
             </div>
 
             {/* Target amount + currency */}
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1.5">
-                <Label className="text-zinc-300">Target Amount <span className="text-red-400">*</span></Label>
+                <Label className="text-foreground">Target Amount <span className="text-red-400">*</span></Label>
                 <Input
                   type="number"
                   min="0.01"
@@ -596,23 +596,23 @@ export default function SavingsPage() {
                     setGoalForm((p) => ({ ...p, targetAmount: e.target.value }))
                   }
                   placeholder="0.00"
-                  className="border-zinc-700 bg-zinc-800/50 text-zinc-100 placeholder:text-zinc-600 font-mono"
+                  className="border-zinc-700 bg-zinc-800/50 text-foreground placeholder:text-foreground font-mono"
                 />
               </div>
               <div className="flex flex-col gap-1.5">
-                <Label className="text-zinc-300">Currency <span className="text-red-400">*</span></Label>
+                <Label className="text-foreground">Currency <span className="text-red-400">*</span></Label>
                 <Select
                   value={goalForm.currency}
                   onValueChange={(val) =>
                     setGoalForm((p) => ({ ...p, currency: val }))
                   }
                 >
-                  <SelectTrigger className="w-full border-zinc-700 bg-zinc-800/50 text-zinc-100">
+                  <SelectTrigger className="w-full border-zinc-700 bg-zinc-800/50 text-foreground">
                     <SelectValue placeholder="Currency" />
                   </SelectTrigger>
-                  <SelectContent className="bg-zinc-900 border-zinc-700 text-zinc-100">
+                  <SelectContent className="bg-zinc-900 border-zinc-700 text-foreground">
                     {SUPPORTED_CURRENCIES.map((c: string) => (
-                      <SelectItem key={c} value={c} className="focus:bg-zinc-800 focus:text-zinc-100 font-mono">
+                      <SelectItem key={c} value={c} className="focus:bg-zinc-800 focus:text-foreground font-mono">
                         {c}
                       </SelectItem>
                     ))}
@@ -634,13 +634,13 @@ export default function SavingsPage() {
 
             {/* Icon */}
             <div className="flex flex-col gap-1.5">
-              <Label className="text-zinc-300">Icon (emoji, optional)</Label>
+              <Label className="text-foreground">Icon (emoji, optional)</Label>
               <Input
                 value={goalForm.icon}
                 onChange={(e) => setGoalForm((p) => ({ ...p, icon: e.target.value }))}
                 placeholder="e.g. 🏖️"
                 maxLength={8}
-                className="border-zinc-700 bg-zinc-800/50 text-zinc-100 placeholder:text-zinc-600"
+                className="border-zinc-700 bg-zinc-800/50 text-foreground placeholder:text-foreground"
               />
             </div>
           </div>
@@ -650,7 +650,7 @@ export default function SavingsPage() {
               variant="outline"
               onClick={() => setGoalDialogOpen(false)}
               disabled={saving}
-              className="border-zinc-700 bg-transparent text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"
+              className="border-zinc-700 bg-transparent text-foreground hover:bg-zinc-800 hover:text-foreground"
             >
               Cancel
             </Button>
@@ -667,12 +667,12 @@ export default function SavingsPage() {
 
       {/* ── Contribute Dialog ───────────────────────────────────────────────── */}
       <Dialog open={contributeDialogOpen} onOpenChange={setContributeDialogOpen}>
-        <DialogContent className="bg-zinc-900 border-zinc-800 text-zinc-100 sm:max-w-md">
+        <DialogContent className="bg-zinc-900 border-zinc-800 text-foreground sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-zinc-100">
+            <DialogTitle className="text-foreground">
               Add Contribution
               {targetGoal && (
-                <span className="text-zinc-400 font-normal ml-2 text-base">
+                <span className="text-foreground font-normal ml-2 text-base">
                   — {targetGoal.name}
                 </span>
               )}
@@ -682,7 +682,7 @@ export default function SavingsPage() {
           <div className="flex flex-col gap-4 py-2">
             {/* Amount */}
             <div className="flex flex-col gap-1.5">
-              <Label className="text-zinc-300">
+              <Label className="text-foreground">
                 Amount ({targetGoal?.currency ?? ""}) <span className="text-red-400">*</span>
               </Label>
               <Input
@@ -694,7 +694,7 @@ export default function SavingsPage() {
                   setContribForm((p) => ({ ...p, amount: e.target.value }))
                 }
                 placeholder="0.00"
-                className="border-zinc-700 bg-zinc-800/50 text-zinc-100 placeholder:text-zinc-600 font-mono"
+                className="border-zinc-700 bg-zinc-800/50 text-foreground placeholder:text-foreground font-mono"
               />
             </div>
 
@@ -711,23 +711,23 @@ export default function SavingsPage() {
 
             {/* Note */}
             <div className="flex flex-col gap-1.5">
-              <Label className="text-zinc-300">Note (optional)</Label>
+              <Label className="text-foreground">Note (optional)</Label>
               <Input
                 value={contribForm.note}
                 onChange={(e) =>
                   setContribForm((p) => ({ ...p, note: e.target.value }))
                 }
                 placeholder="e.g. Monthly transfer"
-                className="border-zinc-700 bg-zinc-800/50 text-zinc-100 placeholder:text-zinc-600"
+                className="border-zinc-700 bg-zinc-800/50 text-foreground placeholder:text-foreground"
               />
             </div>
 
             {/* Progress preview */}
             {targetGoal && (
               <div className="rounded-md bg-zinc-800/60 border border-zinc-700 p-3 flex flex-col gap-2">
-                <div className="flex justify-between text-xs text-zinc-500">
+                <div className="flex justify-between text-xs text-foreground">
                   <span>Current</span>
-                  <span className="font-mono text-zinc-300">
+                  <span className="font-mono text-foreground">
                     {formatCurrency(
                       parseFloat(targetGoal.currentAmount || "0"),
                       targetGoal.currency
@@ -735,7 +735,7 @@ export default function SavingsPage() {
                   </span>
                 </div>
                 {contribForm.amount && !isNaN(parseFloat(contribForm.amount)) && (
-                  <div className="flex justify-between text-xs text-zinc-500">
+                  <div className="flex justify-between text-xs text-foreground">
                     <span>After contribution</span>
                     <span className="font-mono text-emerald-400">
                       {formatCurrency(
@@ -746,9 +746,9 @@ export default function SavingsPage() {
                     </span>
                   </div>
                 )}
-                <div className="flex justify-between text-xs text-zinc-500">
+                <div className="flex justify-between text-xs text-foreground">
                   <span>Target</span>
-                  <span className="font-mono text-zinc-300">
+                  <span className="font-mono text-foreground">
                     {formatCurrency(
                       parseFloat(targetGoal.targetAmount || "0"),
                       targetGoal.currency
@@ -764,7 +764,7 @@ export default function SavingsPage() {
               variant="outline"
               onClick={() => setContributeDialogOpen(false)}
               disabled={contributing}
-              className="border-zinc-700 bg-transparent text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"
+              className="border-zinc-700 bg-transparent text-foreground hover:bg-zinc-800 hover:text-foreground"
             >
               Cancel
             </Button>
@@ -781,15 +781,15 @@ export default function SavingsPage() {
 
       {/* ── Delete Confirmation Dialog ──────────────────────────────────────── */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent className="bg-zinc-900 border-zinc-800 text-zinc-100 sm:max-w-md">
+        <DialogContent className="bg-zinc-900 border-zinc-800 text-foreground sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-zinc-100">Delete Savings Goal</DialogTitle>
+            <DialogTitle className="text-foreground">Delete Savings Goal</DialogTitle>
           </DialogHeader>
 
           <div className="py-2">
-            <p className="text-zinc-400 text-sm">
+            <p className="text-foreground text-sm">
               Are you sure you want to delete{" "}
-              <span className="text-zinc-100 font-semibold">
+              <span className="text-foreground font-semibold">
                 {targetGoal?.name}
               </span>
               ? This action cannot be undone and all contribution history will be
@@ -802,7 +802,7 @@ export default function SavingsPage() {
               variant="outline"
               onClick={() => setDeleteDialogOpen(false)}
               disabled={deleting}
-              className="border-zinc-700 bg-transparent text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"
+              className="border-zinc-700 bg-transparent text-foreground hover:bg-zinc-800 hover:text-foreground"
             >
               Cancel
             </Button>

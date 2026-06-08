@@ -238,7 +238,7 @@ export const subscriptionRoutes = new Elysia({
       const [updated] = await db
         .select()
         .from(schema.subscriptions)
-        .where(eq(schema.subscriptions.id, id));
+        .where(and(eq(schema.subscriptions.id, id), eq(schema.subscriptions.userId, user.id)));
 
       return { data: updated };
     },

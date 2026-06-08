@@ -167,10 +167,10 @@ function BudgetCard({
   return (
     <Card className="bg-zinc-900 border-zinc-800">
       <CardHeader className="pb-0">
-        <CardTitle className="text-base text-zinc-100">
+        <CardTitle className="text-base text-foreground">
           {budget.categoryName ?? "Unknown"}
         </CardTitle>
-        <CardDescription className="text-xs text-zinc-500 font-mono">
+        <CardDescription className="text-xs text-foreground font-mono">
           {pct}% {isIncome ? "received" : "used"}
         </CardDescription>
         <CardAction>
@@ -178,7 +178,7 @@ function BudgetCard({
             <Button
               variant="ghost"
               size="icon-sm"
-              className="text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 disabled:opacity-30"
+              className="text-foreground hover:text-foreground hover:bg-zinc-800 disabled:opacity-30"
               onClick={() => onEdit(budget)}
               disabled={isPastMonth}
               title={isPastMonth ? "Past months are read-only" : undefined}
@@ -189,7 +189,7 @@ function BudgetCard({
             <Button
               variant="ghost"
               size="icon-sm"
-              className="text-zinc-400 hover:text-red-400 hover:bg-zinc-800 disabled:opacity-30"
+              className="text-foreground hover:text-red-400 hover:bg-zinc-800 disabled:opacity-30"
               onClick={() => onDelete(budget.id)}
               disabled={isDeleting || isPastMonth}
               title={isPastMonth ? "Past months are read-only" : undefined}
@@ -214,10 +214,10 @@ function BudgetCard({
         </div>
 
         <div className="flex items-center justify-between">
-          <span className="text-sm font-mono text-zinc-300">
-            <span className="text-xs text-zinc-600 mr-1">{spentLabel}</span>
+          <span className="text-sm font-mono text-foreground">
+            <span className="text-xs text-foreground mr-1">{spentLabel}</span>
             {formatCurrency(budget.spentInUserCurrency ?? budget.spent ?? "0", currency)}{" "}
-            <span className="text-zinc-600">/</span>{" "}
+            <span className="text-foreground">/</span>{" "}
             {formatCurrency(budget.amountInUserCurrency ?? budget.amount, currency)}
           </span>
           <span className={`text-xs font-semibold font-mono ${pctColor}`}>
@@ -347,9 +347,9 @@ function BudgetDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-zinc-900 border-zinc-800 text-zinc-100 sm:max-w-md">
+      <DialogContent className="bg-zinc-900 border-zinc-800 text-foreground sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-zinc-100">
+          <DialogTitle className="text-foreground">
             {isEditing ? "Edit Budget" : "Create Budget"}
           </DialogTitle>
         </DialogHeader>
@@ -358,7 +358,7 @@ function BudgetDialog({
           {/* Type selector — only shown when creating */}
           {!isEditing && (
             <div className="flex flex-col gap-2">
-              <Label className="text-zinc-300">Type</Label>
+              <Label className="text-foreground">Type</Label>
               <div className="flex gap-2">
                 <button
                   type="button"
@@ -366,7 +366,7 @@ function BudgetDialog({
                   className={`flex-1 rounded-md border py-1.5 text-sm font-medium transition-colors ${
                     selectedType === "expense"
                       ? "border-emerald-600 bg-emerald-600/20 text-emerald-300"
-                      : "border-zinc-700 bg-zinc-800/50 text-zinc-400 hover:border-zinc-600"
+                      : "border-zinc-700 bg-zinc-800/50 text-foreground hover:border-zinc-600"
                   }`}
                 >
                   Expense
@@ -377,7 +377,7 @@ function BudgetDialog({
                   className={`flex-1 rounded-md border py-1.5 text-sm font-medium transition-colors ${
                     selectedType === "income"
                       ? "border-blue-600 bg-blue-600/20 text-blue-300"
-                      : "border-zinc-700 bg-zinc-800/50 text-zinc-400 hover:border-zinc-600"
+                      : "border-zinc-700 bg-zinc-800/50 text-foreground hover:border-zinc-600"
                   }`}
                 >
                   Income
@@ -387,24 +387,24 @@ function BudgetDialog({
           )}
 
           <div className="flex flex-col gap-2">
-            <Label htmlFor="budget-category" className="text-zinc-300">
+            <Label htmlFor="budget-category" className="text-foreground">
               Category
             </Label>
             {isEditing ? (
-              <div className="flex h-9 items-center rounded-md border border-zinc-700 bg-zinc-800/50 px-3 text-sm text-zinc-400 cursor-default">
+              <div className="flex h-9 items-center rounded-md border border-zinc-700 bg-zinc-800/50 px-3 text-sm text-foreground cursor-default">
                 {editingBudget!.categoryName ?? "Unknown"}
               </div>
             ) : (
               <Select value={categoryId} onValueChange={handleCategoryChange}>
                 <SelectTrigger
                   id="budget-category"
-                  className="w-full border-zinc-700 bg-zinc-800/50 text-zinc-100 data-[placeholder]:text-zinc-500"
+                  className="w-full border-zinc-700 bg-zinc-800/50 text-foreground data-[placeholder]:text-foreground"
                 >
                   <SelectValue placeholder="Select a category…" />
                 </SelectTrigger>
-                <SelectContent className="bg-zinc-900 border-zinc-700 text-zinc-100">
+                <SelectContent className="bg-zinc-900 border-zinc-700 text-foreground">
                   {availableCategories.length === 0 ? (
-                    <div className="px-2 py-3 text-sm text-zinc-500 text-center">
+                    <div className="px-2 py-3 text-sm text-foreground text-center">
                       All {selectedType} categories are already budgeted.
                     </div>
                   ) : (
@@ -412,7 +412,7 @@ function BudgetDialog({
                       <SelectItem
                         key={cat.id}
                         value={String(cat.id)}
-                        className="focus:bg-zinc-800 focus:text-zinc-100"
+                        className="focus:bg-zinc-800 focus:text-foreground"
                       >
                         {cat.name}
                       </SelectItem>
@@ -424,7 +424,7 @@ function BudgetDialog({
           </div>
 
           <div className="flex flex-col gap-2">
-            <Label htmlFor="budget-amount" className="text-zinc-300">
+            <Label htmlFor="budget-amount" className="text-foreground">
               {isEditing && editingBudget?.categoryType === "income"
                 ? "Target Income"
                 : "Budget Amount"}
@@ -438,7 +438,7 @@ function BudgetDialog({
               placeholder="0.00"
               value={amount}
               onChange={(e) => { setAmount(e.target.value); setPrefillHint(null); }}
-              className="border-zinc-700 bg-zinc-800/50 text-zinc-100 placeholder:text-zinc-600 font-mono"
+              className="border-zinc-700 bg-zinc-800/50 text-foreground placeholder:text-foreground font-mono"
               required
             />
             {prefillHint && (
@@ -453,7 +453,7 @@ function BudgetDialog({
             <Button
               type="button"
               variant="outline"
-              className="border-zinc-700 bg-transparent text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"
+              className="border-zinc-700 bg-transparent text-foreground hover:bg-zinc-800 hover:text-foreground"
               onClick={() => onOpenChange(false)}
               disabled={submitting}
             >
@@ -730,13 +730,13 @@ export default function BudgetsPage() {
           variant="outline"
           size="icon"
           onClick={prevMonth}
-          className="border-zinc-700 bg-transparent text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"
+          className="border-zinc-700 bg-transparent text-foreground hover:bg-zinc-800 hover:text-foreground"
           aria-label="Previous month"
         >
           <ChevronLeft className="size-4" />
         </Button>
 
-        <span className="text-lg font-semibold text-zinc-100 min-w-[11rem] text-center tracking-tight select-none">
+        <span className="text-lg font-semibold text-foreground min-w-[11rem] text-center tracking-tight select-none">
           {getMonthName(month)} {year}
         </span>
 
@@ -744,7 +744,7 @@ export default function BudgetsPage() {
           variant="outline"
           size="icon"
           onClick={nextMonth}
-          className="border-zinc-700 bg-transparent text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"
+          className="border-zinc-700 bg-transparent text-foreground hover:bg-zinc-800 hover:text-foreground"
           aria-label="Next month"
         >
           <ChevronRight className="size-4" />
@@ -845,12 +845,12 @@ export default function BudgetsPage() {
         </div>
       ) : budgets.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-6 rounded-xl border border-dashed border-zinc-700 bg-zinc-900/40 py-20 text-center">
-          <PiggyBank className="size-12 text-zinc-600" />
+          <PiggyBank className="size-12 text-foreground" />
           <div className="flex flex-col gap-1">
-            <p className="text-base font-semibold text-zinc-300">
+            <p className="text-base font-semibold text-foreground">
               No budgets set for {getMonthName(month)} {year}
             </p>
-            <p className="text-sm text-zinc-500">
+            <p className="text-sm text-foreground">
               Create a budget to start tracking your spending.
             </p>
           </div>
@@ -867,7 +867,7 @@ export default function BudgetsPage() {
           {/* Income Budgets section */}
           {incomeBudgets.length > 0 && (
             <div className="flex flex-col gap-3">
-              <h2 className="text-sm font-semibold uppercase tracking-widest text-zinc-500">
+              <h2 className="text-sm font-semibold uppercase tracking-widest text-foreground">
                 Income Budgets
               </h2>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -890,7 +890,7 @@ export default function BudgetsPage() {
           {/* Expense Budgets section */}
           {expenseBudgets.length > 0 && (
             <div className="flex flex-col gap-3">
-              <h2 className="text-sm font-semibold uppercase tracking-widest text-zinc-500">
+              <h2 className="text-sm font-semibold uppercase tracking-widest text-foreground">
                 Expense Budgets
               </h2>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">

@@ -88,7 +88,7 @@ function TableSkeleton({ rows = 5, cols = 5 }: { rows?: number; cols?: number })
 
 function PercentBar({ percent }: { percent: number | null }) {
   if (percent === null) {
-    return <span className="text-zinc-600 text-xs">—</span>;
+    return <span className="text-foreground text-xs">—</span>;
   }
 
   const clamped = Math.min(percent, 100);
@@ -123,11 +123,11 @@ function PercentBar({ percent }: { percent: number | null }) {
 }
 
 function MoMBadge({ current, previous }: { current: string; previous: string | undefined }) {
-  if (!previous) return <span className="text-zinc-600 text-xs">—</span>;
+  if (!previous) return <span className="text-foreground text-xs">—</span>;
 
   const curr = parseFloat(current);
   const prev = parseFloat(previous);
-  if (prev === 0) return <span className="text-zinc-600 text-xs">—</span>;
+  if (prev === 0) return <span className="text-foreground text-xs">—</span>;
 
   const pct = ((curr - prev) / Math.abs(prev)) * 100;
   const up = pct > 0;
@@ -135,7 +135,7 @@ function MoMBadge({ current, previous }: { current: string; previous: string | u
 
   if (neutral) {
     return (
-      <span className="inline-flex items-center gap-0.5 text-xs text-zinc-400">
+      <span className="inline-flex items-center gap-0.5 text-xs text-foreground">
         <Minus className="size-3" /> 0.0%
       </span>
     );
@@ -195,7 +195,7 @@ function TrendBarChart({ data, currency }: { data: TrendRow[]; currency: string 
                 </div>
               </div>
               {/* label */}
-              <span className="text-zinc-500 text-[10px] leading-tight text-center whitespace-nowrap">
+              <span className="text-foreground text-[10px] leading-tight text-center whitespace-nowrap">
                 {getMonthName(row.month).slice(0, 3)}
                 <br />
                 {row.year}
@@ -206,11 +206,11 @@ function TrendBarChart({ data, currency }: { data: TrendRow[]; currency: string 
       </div>
       {/* legend */}
       <div className="flex items-center gap-4 mt-1 px-1">
-        <span className="flex items-center gap-1.5 text-xs text-zinc-400">
+        <span className="flex items-center gap-1.5 text-xs text-foreground">
           <span className="inline-block w-3 h-3 rounded-sm bg-emerald-600/80" />
           Income
         </span>
-        <span className="flex items-center gap-1.5 text-xs text-zinc-400">
+        <span className="flex items-center gap-1.5 text-xs text-foreground">
           <span className="inline-block w-3 h-3 rounded-sm bg-red-600/80" />
           Expenses
         </span>
@@ -319,7 +319,7 @@ export default function ReportsPage() {
   // ── Net amount color ───────────────────────────────────────────────────────
 
   const netColorClass = () => {
-    if (!summary) return "text-zinc-100";
+    if (!summary) return "text-foreground";
     const net = parseFloat(summary.netAmount);
     return net >= 0 ? "text-emerald-400" : "text-red-400";
   };
@@ -335,17 +335,17 @@ export default function ReportsPage() {
         action={<div className="flex flex-wrap items-end gap-3">
           {/* Year selector */}
           <div className="flex flex-col gap-1">
-            <Label className="text-zinc-400 text-xs uppercase tracking-wide">Year</Label>
+            <Label className="text-foreground text-xs uppercase tracking-wide">Year</Label>
             <Select
               value={String(selectedYear)}
               onValueChange={(v) => setSelectedYear(Number(v))}
             >
-              <SelectTrigger className="w-[96px] border-zinc-700 bg-zinc-800/50 text-zinc-100">
+              <SelectTrigger className="w-[96px] border-zinc-700 bg-zinc-800/50 text-foreground">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="bg-zinc-900 border-zinc-700 text-zinc-100">
+              <SelectContent className="bg-zinc-900 border-zinc-700 text-foreground">
                 {YEARS.map((y) => (
-                  <SelectItem key={y} value={String(y)} className="focus:bg-zinc-800 focus:text-zinc-100">
+                  <SelectItem key={y} value={String(y)} className="focus:bg-zinc-800 focus:text-foreground">
                     {y}
                   </SelectItem>
                 ))}
@@ -355,17 +355,17 @@ export default function ReportsPage() {
 
           {/* Month selector */}
           <div className="flex flex-col gap-1">
-            <Label className="text-zinc-400 text-xs uppercase tracking-wide">Month</Label>
+            <Label className="text-foreground text-xs uppercase tracking-wide">Month</Label>
             <Select
               value={String(selectedMonth)}
               onValueChange={(v) => setSelectedMonth(Number(v))}
             >
-              <SelectTrigger className="w-[128px] border-zinc-700 bg-zinc-800/50 text-zinc-100">
+              <SelectTrigger className="w-[128px] border-zinc-700 bg-zinc-800/50 text-foreground">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="bg-zinc-900 border-zinc-700 text-zinc-100">
+              <SelectContent className="bg-zinc-900 border-zinc-700 text-foreground">
                 {MONTHS.map((m) => (
-                  <SelectItem key={m} value={String(m)} className="focus:bg-zinc-800 focus:text-zinc-100">
+                  <SelectItem key={m} value={String(m)} className="focus:bg-zinc-800 focus:text-foreground">
                     {getMonthName(m)}
                   </SelectItem>
                 ))}
@@ -406,12 +406,12 @@ export default function ReportsPage() {
           ) : summaryError ? (
             <div className="rounded-xl bg-zinc-900 border border-zinc-800 p-10 text-center">
               <p className="text-red-400 font-medium">Failed to load summary.</p>
-              <p className="text-zinc-500 text-sm mt-1">
+              <p className="text-foreground text-sm mt-1">
                 Check your connection and try again.
               </p>
               <Button
                 variant="outline"
-                className="mt-4 border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+                className="mt-4 border-zinc-700 text-foreground hover:bg-zinc-800"
                 onClick={() => {
                   void fetchSummary();
                 }}
@@ -453,28 +453,28 @@ export default function ReportsPage() {
 
               <Card className="bg-zinc-900 border-zinc-800">
                 <CardHeader>
-                  <CardTitle className="text-base text-zinc-100">
+                  <CardTitle className="text-base text-foreground">
                     {getMonthName(selectedMonth)} {selectedYear} — Summary
                   </CardTitle>
-                  <CardDescription className="text-zinc-500">
+                  <CardDescription className="text-foreground">
                     {summary.byCategory.length} spending{" "}
                     {summary.byCategory.length === 1 ? "category" : "categories"} recorded.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   {summary.byCategory.length === 0 ? (
-                    <p className="text-zinc-500 text-sm">No category data available.</p>
+                    <p className="text-foreground text-sm">No category data available.</p>
                   ) : (
                     <div className="space-y-3">
                       {summary.byCategory.map((cat) => (
                         <div key={cat.categoryId} className="flex items-center gap-3">
-                          <span className="text-zinc-300 text-sm w-36 truncate shrink-0">
+                          <span className="text-foreground text-sm w-36 truncate shrink-0">
                             {cat.categoryName}
                           </span>
                           <div className="flex-1">
                             <PercentBar percent={cat.percentUsed} />
                           </div>
-                          <span className="text-zinc-400 text-sm text-right w-28 shrink-0">
+                          <span className="text-foreground text-sm text-right w-28 shrink-0">
                             {formatCurrency(cat.totalAmount, currency)}
                           </span>
                         </div>
@@ -493,8 +493,8 @@ export default function ReportsPage() {
         <TabsContent value="categories" className="space-y-4">
           <Card className="bg-zinc-900 border-zinc-800">
             <CardHeader>
-              <CardTitle className="text-base text-zinc-100">Category Breakdown</CardTitle>
-              <CardDescription className="text-zinc-500">
+              <CardTitle className="text-base text-foreground">Category Breakdown</CardTitle>
+              <CardDescription className="text-foreground">
                 {getMonthName(selectedMonth)} {selectedYear}
               </CardDescription>
             </CardHeader>
@@ -508,7 +508,7 @@ export default function ReportsPage() {
                   <p className="text-red-400 font-medium">Failed to load data.</p>
                   <Button
                     variant="outline"
-                    className="mt-4 border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+                    className="mt-4 border-zinc-700 text-foreground hover:bg-zinc-800"
                     onClick={() => {
                       void fetchSummary();
                     }}
@@ -518,7 +518,7 @@ export default function ReportsPage() {
                 </div>
               ) : !summary || summary.byCategory.length === 0 ? (
                 <div className="p-10 text-center">
-                  <p className="text-zinc-400">
+                  <p className="text-foreground">
                     No category data for {getMonthName(selectedMonth)} {selectedYear}.
                   </p>
                 </div>
@@ -527,11 +527,11 @@ export default function ReportsPage() {
                   <Table>
                     <TableHeader>
                       <TableRow className="border-zinc-800 hover:bg-transparent">
-                        <TableHead className="text-zinc-400 font-medium pl-6">Category</TableHead>
-                        <TableHead className="text-zinc-400 font-medium text-right">Total Amount</TableHead>
-                        <TableHead className="text-zinc-400 font-medium text-right">Budget</TableHead>
-                        <TableHead className="text-zinc-400 font-medium">% Used</TableHead>
-                        <TableHead className="text-zinc-400 font-medium text-right pr-6">Transactions</TableHead>
+                        <TableHead className="text-foreground font-medium pl-6">Category</TableHead>
+                        <TableHead className="text-foreground font-medium text-right">Total Amount</TableHead>
+                        <TableHead className="text-foreground font-medium text-right">Budget</TableHead>
+                        <TableHead className="text-foreground font-medium">% Used</TableHead>
+                        <TableHead className="text-foreground font-medium text-right pr-6">Transactions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -540,16 +540,16 @@ export default function ReportsPage() {
                           key={cat.categoryId}
                           className="border-zinc-800 hover:bg-zinc-800/40"
                         >
-                          <TableCell className="text-zinc-100 font-medium pl-6">
+                          <TableCell className="text-foreground font-medium pl-6">
                             {cat.categoryName}
                           </TableCell>
-                          <TableCell className="text-right text-zinc-300">
+                          <TableCell className="text-right text-foreground">
                             {formatCurrency(cat.totalAmount, currency)}
                           </TableCell>
-                          <TableCell className="text-right text-zinc-400">
+                          <TableCell className="text-right text-foreground">
                             {cat.budgetAmount
                               ? formatCurrency(cat.budgetAmount, currency)
-                              : <span className="text-zinc-600">—</span>}
+                              : <span className="text-foreground">—</span>}
                           </TableCell>
                           <TableCell>
                             <PercentBar percent={cat.percentUsed} />
@@ -557,7 +557,7 @@ export default function ReportsPage() {
                           <TableCell className="text-right pr-6">
                             <Badge
                               variant="secondary"
-                              className="bg-zinc-800 text-zinc-300 border-zinc-700"
+                              className="bg-zinc-800 text-foreground border-zinc-700"
                             >
                               {cat.transactionCount}
                             </Badge>
@@ -578,22 +578,22 @@ export default function ReportsPage() {
         <TabsContent value="trends" className="space-y-4">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div>
-              <h2 className="text-base font-semibold text-zinc-100">Income vs Expenses Over Time</h2>
-              <p className="text-xs text-zinc-500 mt-0.5">Month-over-month financial trends</p>
+              <h2 className="text-base font-semibold text-foreground">Income vs Expenses Over Time</h2>
+              <p className="text-xs text-foreground mt-0.5">Month-over-month financial trends</p>
             </div>
             {/* Horizon selector */}
             <div className="flex items-center gap-2">
-              <Label className="text-zinc-400 text-xs whitespace-nowrap">Horizon</Label>
+              <Label className="text-foreground text-xs whitespace-nowrap">Horizon</Label>
               <Select
                 value={String(trendHorizon)}
                 onValueChange={(v) => setTrendHorizon(Number(v) as TrendHorizon)}
               >
-                <SelectTrigger className="w-[110px] border-zinc-700 bg-zinc-800/50 text-zinc-100">
+                <SelectTrigger className="w-[110px] border-zinc-700 bg-zinc-800/50 text-foreground">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-zinc-900 border-zinc-700 text-zinc-100">
+                <SelectContent className="bg-zinc-900 border-zinc-700 text-foreground">
                   {TREND_HORIZONS.map((h) => (
-                    <SelectItem key={h} value={String(h)} className="focus:bg-zinc-800 focus:text-zinc-100">
+                    <SelectItem key={h} value={String(h)} className="focus:bg-zinc-800 focus:text-foreground">
                       {h} months
                     </SelectItem>
                   ))}
@@ -621,7 +621,7 @@ export default function ReportsPage() {
                   <p className="text-red-400 font-medium">Failed to load trend data.</p>
                   <Button
                     variant="outline"
-                    className="mt-4 border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+                    className="mt-4 border-zinc-700 text-foreground hover:bg-zinc-800"
                     onClick={() => {
                       void fetchTrend();
                     }}
@@ -631,7 +631,7 @@ export default function ReportsPage() {
                 </div>
               ) : trendData.length === 0 ? (
                 <div className="py-10 text-center">
-                  <p className="text-zinc-400">No trend data available.</p>
+                  <p className="text-foreground">No trend data available.</p>
                 </div>
               ) : (
                 <>
@@ -645,11 +645,11 @@ export default function ReportsPage() {
                     <Table>
                       <TableHeader>
                         <TableRow className="border-zinc-800 hover:bg-transparent">
-                          <TableHead className="text-zinc-400 font-medium">Month</TableHead>
-                          <TableHead className="text-zinc-400 font-medium text-right">Income</TableHead>
-                          <TableHead className="text-zinc-400 font-medium text-right">Expenses</TableHead>
-                          <TableHead className="text-zinc-400 font-medium text-right">Net</TableHead>
-                          <TableHead className="text-zinc-400 font-medium text-right">MoM Expenses</TableHead>
+                          <TableHead className="text-foreground font-medium">Month</TableHead>
+                          <TableHead className="text-foreground font-medium text-right">Income</TableHead>
+                          <TableHead className="text-foreground font-medium text-right">Expenses</TableHead>
+                          <TableHead className="text-foreground font-medium text-right">Net</TableHead>
+                          <TableHead className="text-foreground font-medium text-right">MoM Expenses</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -662,7 +662,7 @@ export default function ReportsPage() {
                               key={`${row.year}-${row.month}`}
                               className="border-zinc-800 hover:bg-zinc-800/40"
                             >
-                              <TableCell className="text-zinc-100 font-medium">
+                              <TableCell className="text-foreground font-medium">
                                 {getMonthName(row.month)} {row.year}
                               </TableCell>
                               <TableCell className="text-right text-green-400">
